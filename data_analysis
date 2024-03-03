@@ -39,12 +39,23 @@ footnote "Outputs generated from &progname..sas";
 /*convert lab_result_num_val from character to number*/
 
 data analysis.test_vitals;
-set tx5p.vitals_signs;
-num_value = input(value, 8.);
+  set tx5p.vitals_signs;
+  num_value = input(value, 8.);
 run;
 
 proc contents data=analysis.test_vitals;
 run;
+
+proc print data=analysis.test_vitals (obs=20);
+run;
+
+
+/* to 
+proc print data=analysis.test_vitals (obs=20);
+  var code_system code units_of_measure;
+  where code_system = "LOINC";
+run;
+
 
 data analysis.test_lab;
 set tx5p.lab_result;
