@@ -1,0 +1,377 @@
+******************************************************
+* 1.0. Essentials
+******************************************************
+
+
+
+****************************************************************************************************************
+* 2.0. Accessing Data
+****************************************************************************************************************
+
+******************************************************
+* 2.1. Understanding SAS Data 
+* 2.2. Accessing Data through Libraries 
+******************************************************
+
+proc import datafile="path/filename" DBMS=filetype OUT=output-table;
+replace;
+guessingrows=n|max;
+run;
+
+/* 
+create the library - global statement = location & type of data
+- library name : 8-char max, start with letter of underscore, continues with letters, numbers, or underscore
+- engine : set of instructions - base, excel, teradata, hadoop
+- when every you restart SAS, you should write the following library commands 
+*/
+
+libname libname engine "path";
+libname mylib base "s:/workshop/data";
+
+libname mypib clear;    /* your data is not deleted */
+
+porc contents data=mylib.class;
+run;
+
+/* 
+automatic SAS library
+work : temporary - default library
+sashelp ; has sample table 
+*/
+
+
+/* creating new 2 tables : class_copy1 & out.class_copy2
+이중 out 라이브러리에 저장된 파일은 세션이 끝나도 저장되어 있음 - 대신 libname으로 library를 다시 불러줘야 볼 수 있음 */
+
+data class_copy1 out.class_copy2;
+  set sashelp.class; 
+run;
+
+/* read excel files - call to xlsx engine */
+libname xlclass xlsx "path/file-namae.xlsx";
+
+/* when the file includes space  엑셀 컬럼 명에 빈칸이 있는 경우 아래 option 사용 
+space -> underscore within 32 charc
+*/
+options validvarname=v7;
+
+/* example */
+options validvarname=v7;
+libname xlclass xlsx "path/file-namae.xlsx";
+
+porc contents data=xlclass.class_birthdate;
+run;
+
+libname xlclass clear;
+
+
+******************************************************
+* 2.3. Importing Data into SAS
+******************************************************
+
+proc import datafile="path/filename" DBMS=filetype OUT=output-table;
+replace;
+guessingrows=n|max;
+run;
+
+/* replace option! the import was cancelled because work.storm_damage_tab already exists. 
+It also instructs you to specify the REPLACE option to overwrite it. */
+
+proc import datafile="s:/workshop/data/storm_damage.csv" dbms=csv
+            out=storm_damage_import 
+            replace;                        
+run;
+
+/* importing excel data 
+엔진 사용할 때랑, proc import 사용할 때의 차이: 엔진쓰면 reads directly from file - data is always current, 하지만, import는 그때그때 update 필요*/
+
+proc import datafile="path"
+        dbms=xlsx
+        out=work.class_test_import
+        replace;
+      sheet=class_test;
+run;
+
+/* import csv file */
+proc import datafile="path"
+      dbms=csv
+      out=traffic
+      replace;
+  guessingrows=max;
+run;
+
+/* import data file with specific delimiter - 지정해줄 수 있음 */
+proc import datafile="path"
+        dbms=dlm
+        out=traffic2
+        replace;
+  guessingrows=3000;
+  delimiter="|";
+run;
+
+****************************************************************************************************************
+* 3.0. Exploring and Validating data
+****************************************************************************************************************
+
+******************************************************
+* 3.1. Exploring data
+******************************************************
+
+/*
+print : show all list in data
+means : n, mean, sd, min, max
+univariate ; incl. details stats (quantiles, outliers)
+freq : freq, percent, cumulative freq, cumulative percent
+
+var : statement in PROC PRINT selects variables that appear in the report and determines their order
+*/
+
+/*list first 20 rows*/
+proc print data=pg1.np_summary(obs=20);
+    var Reg Type ParkName DayVisits TentCampers RVCampers;
+run;
+
+/*calculate summary statistics*/
+proc means data=pg1.np_summary;
+    var DayVisits TentCampers RVCampers;
+run;
+
+/*examine extreme values*/
+proc univariate data=pg1.np_summary;
+    var DayVisits TentCampers RVCampers;
+run;
+
+/*list unique values and frequency counts*/
+proc freq data=pg1.np_summary;
+    tables Reg Type;
+run;
+
+******************************************************
+* 3.2. Filtering Rows
+******************************************************
+
+proc ~;
+  where expression(column + operator + value) ;  
+run;
+
+/* 
+operator = eq, lt, ne, ge, gt, le
+value type = "" or '' 
+date : "ddmmmyyy'd
+  where date > "1jan15"d;
+  where data > "01jan2015"d;
+*/
+
+proc print data=;
+  var make model ~~;
+  where type="suv" and msrp <= 30000;
+run;
+
+/*
+where type ="a" or type ="b" or type ="c";
+where type in ("a", "b", "c");
+where type in ("a" "b" "c");
+where type not in ("a", "b", "c");
+*/
+
+/* 
+exclude missing values 
+missing value: where type=. or type=" ";
+*/
+
+proc print data=~~:
+  where max > 156 or 0< min <920;
+run;
+
+where name is missing;
+where name is not missing;
+where item is null;
+
+where age between 20 and 39; /* the range of the value is inclusive(마지막 숫자 포함한다는 소리) */
+
+where name like "_min";
+/*
+% : any number or charc
+_ : single charc
+*/
+
+proc print data=pg1.storm_summary(obs=50);
+   where name like "Z%";
+run;
+
+proc print data=pg1.eu_occ;
+    where Hotel is missing and ShortStay is missing and 
+          Camp is missing;
+run;
+
+/* Modify the WHERE statement to list rows with Hotel values greater than 40,000,000. Submit the program. */
+proc print data=pg1.eu_occ;
+    where Hotel > 40000000;
+run;
+
+/* 조건에 맞는 rows 만 골라서 freq & table 만들기 or print */
+proc freq data=pg1.np_species;
+    tables Abundance Conservation_Status;
+    where Species_ID like "YOSE%" and
+          Category="Mammal";
+run;
+
+proc print data=pg1.np_species;
+    var Species_ID Category Scientific_Name Common_Names;
+    where Species_ID like "YOSE%" and
+          Category="Mammal";
+run;
+
+/* creating and using macro variables */
+/* 이때 a로 하던 작업을 똑같이 b로도 하고 싶을 때 -> macro variables 사용해서 할 수 있음*/
+
+%LET macro-variable=value;
+%LET cartype=a;
+/* in the codes */ &cartype
+
+proc print data=class.data;
+    where type="a";
+    var type make model msrp;
+run;
+
+proc means data=class.data;
+    where type="a";
+    var msrp mpg_highway;
+run;
+
+proc freq data=class.data;
+    where type="a";
+    tables origin make
+run;
+
+/* with macro variables */
+%LET cartype=a;
+
+proc print data=class.data;
+    where type="&cartype";
+    var type make model msrp;
+run;
+
+/* example */
+
+%let ParkCode=YOSE;
+%let SpeciesCat=Mammal;
+proc freq data=pg1.np_species;
+    tables Abundance Conservation_Status;
+    where Species_ID like "&ParkCode%" and
+          Category="&SpeciesCat";
+run;
+
+proc print data=pg1.np_species;
+    var Species_ID Category Scientific_Name Common_Names;
+    where Species_ID like "&ParkCode%" and
+          Category="&SpeciesCat";
+run;
+
+/* Print rows where Count is not equal to 0 and Location includes MAIN ENTRANCE. Submit the program. Use the log to confirm that 38 rows are listed. */
+proc print data=pg1.np_species;
+    var ParkName Location Count;
+    where Count ne 0 and Location like "%MAIN ENTRANCE%";
+run;
+
+/* 
+UPCASE function 
+The UPCASE function in a WHERE statement does not permanently convert the values of the column to uppercase.
+Use the UPCASE function on the Location column to include any case of MAIN ENTRANCE. 
+*/
+
+proc print data=pg1.np_species;
+    var ParkName Location Count;
+    where Count ne 0 and upcase(Location) like "%MAIN ENTRANCE%";
+run;
+
+******************************************************
+* 3.3. Formatting data values in results
+******************************************************
+/*
+the affects only displays
+not change the raw data values
+<$>format-name<w>.<d>
+<$> : charc
+<w> : width including decimals and special charc
+<d> : the number of decimal places
+*/
+
+proc print data=class.table;
+  format col-name(s) format;
+run;
+
+proc print data=class.table;
+  format height weight 3. birthdate date9.;
+run;
+
+/* 
+1. common formats for numeric values 
+
+w.d : 8.1
+COMMAw.d : comma8.1 
+DOLLARw.d : dollar10.2 or dollar10.
+YENw.d : yem7.
+EUROXw.d : eurox10.2
+
+2. common formats for date values
+(참고하기)
+*/
+
+proc print data=class.table;
+  format date mmddyy10. cost dollar16. ;
+run;
+
+******************************************************
+* 3.4. Sorting data and removing duplicates
+******************************************************
+
+/*
+objectives
+to improve visual arrangement of the data
+to identify and remove duplicate rows
+to prepare
+*/
+
+proc sort data=class.table out=class.output;
+  by <descending> col-name(s);
+run;
+
+proc sort data=class.test out=class.test_sort;
+  by name;
+run;
+
+proc sort data=class.test out=class.test_sort;
+  by name testscore;     /* 여러개로도 sort 가능 */
+run;
+
+proc sort data=class.test out=class.test_sort;
+  by subject descending testscore;     /* testscore -> sorted descending (해당 변수 앞에다 쓰기) */
+run;
+
+proc sort data=pg1.storm_summary out=storm_sort;
+     where Basin in("NA" "na");
+     by descending MaxWindMPH;
+ run; 
+
+/* adding options 
+nodupkey : keeps only first occurrence of each unique value (첫번째 row 만 남기고 삭제함)
+*/
+
+proc sort data=class.test out=class.test_sort
+        nodupkey <dupout=class.test_sort>;
+      by col-name;
+run;
+
+proc sort data=class.test out=class.test_sort
+        nodupkey 
+        <dupout=class.test_dups>;         /* in the class.test_dups -> it has all the data removed */
+      by _all_;                           /* this removes entirely duplicated rows */
+run;
+
+
+
+
+
+
+
