@@ -1,0 +1,157 @@
+/* 0.0 - Access */
+
+ssh -X mkim@jhpce03.jhsph.edu
+cd /dcs07/trinetx/data/
+cd /users/mkim/
+
+srun --pty --x11 bash208664
+  
+module load sas
+sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
+
+*******************************************************************************************************************************
+  * Progname: 01_exploredata.sas
+  * Date(due): 2024.03.04
+  * Detail: 
+*******************************************************************************************************************************
+
+*************************************************************************
+* 1.0 - Set up the environment in JHPCE *
+*************************************************************************
+
+/* srcdata and sp5data are hemal datasets */
+libname tx "/dcs07/trinetx/data/SAS datasets";
+libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
+libname test "/dcs07/trinetx/data/test_data";
+
+/* location for my data analysis - team directory */
+libname analysis "/dcs07/trinetx/data/test_sas/5p";
+
+/* save the output */
+ods rtf file="users/mkim/trinetx/output/01_exploredata_5p.rtf";
+footnote "Outputs generated from &progname..sas";
+
+*************************************************************************
+* 2.0 - Explore the data *
+*************************************************************************
+
+/*data stack(take 10 mins)*/
+/*convert lab_result_num_val from character to number*/
+
+data analysis.test_vitals;
+set tx5p.vitals_signs;
+num_value = input(value, 8.);
+run;
+
+proc contents data=analysis.test_vitals;
+run;
+
+data analysis.test_lab;
+set tx5p.lab_result;
+value = input(lab_result_num_val, 7.);
+run;
+
+proc contents data=analysis.test_lab;
+run;
+
+*************************************************************************
+* 2.1 - Map standardized_terminology *
+*************************************************************************  
+
+/* Map VITAL SIGNS LOINC terms */
+proc sql;
+  create table analysis.map_vit as
+  select a.*, b.code, b.code_description, b.code_system 
+  from tx5p.vitals_signs a left join test.standardized_terminology b 
+  on a.code_system=b.code_system and a.code=b.code;
+quit;
+
+proc print; run;
+
+
+/* Map LAB LOINC terms */
+proc sql;
+  create table analysis.map_lab as
+  select a.*, b.code, b.code_description, b.code_system 
+  from tx5p.lab_result a 
+    left join test.standardized_terminology b 
+  on a.code_system=b.code_system and a.code=b.code;
+quit;
+
+proc print; run;
+  
+/* table freq */
+proc freq 
+
+*************************************************************************
+* 2.2 - Explore the data *
+*************************************************************************
+
+/* alignment by id for 'by group processing' (it already seems to be aligned by id) */
+
+proc sort data=analysis.test_vitals out=analysis.test_vitals_by_id;
+by patient_id;
+run;
+
+/* BMI distribution */
+proc sql;
+  create table bmidis as
+    select code, num_value    
+    from analysis.test_vitals_by_id
+  where where code like "%39156-5%";
+quit;
+
+proc print; run;
+
+/* means of BMI */
+proc means data=analysis.test_vitals_by_id min max maxdec=2;
+where code like "%39156-5%";
+var num_value;
+run;
+
+proc print; run;
+
+
+*3. Event to patient level;
+Proc sql;
+select var
+create table X
+from y
+group by id;
+quit;
+
+
+******************************************************************************************************************************************************
+******************************************************************************************************************************************************
+
+/*import the data file(take over 10mins)*/
+
+data trinetx.test;
+infile "/dcs07/trinetx/data/SAS_datasets_5p/lab_result.sas7bdat";
+input 
+  patient_id  $
+  encounter_id  $
+  code_system  $
+  code  $
+  date  $
+  lab_result_num_val
+  lab_result_text_val  $
+  units_of_measure  $
+  derived_by_TriNetX  $
+  source_id  $
+;
+if _ERROR_ then call symputx('_EFIERR_',1);
+run;
+
+
+/*import-other ways*/
+proc import out = trinetx.test
+  datafile="/users/mkim/sas/lab_result.sas7bdat";
+  dbms=
+  getnames=yes;
+run;
+
+
+/*look at the data set contents*/
+proc contents data=trinetx.test;
+  run;
