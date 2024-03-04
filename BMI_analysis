@@ -84,7 +84,7 @@ run;
 
 data analysis.test_lab;    
   set tx5p.lab_result;
-  num_value = input(value, 8.);
+  lab_result_num_val = input(value, 8.);
 run;                                /* there were 319431133 obs */
 
 proc contents data=analysis.test_lab;
@@ -251,7 +251,7 @@ run;
 /* calculate summary statistics by individual */
 
 proc means data=analysis.test_lab_id;
-      var num_value;
+      var lab_result_num_val;
       where code like "89270-3";
       class patient_id;
    output out=analysis.mean_estbmi_by_patient 
