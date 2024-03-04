@@ -131,7 +131,7 @@ proc print data=pg1.np_summary(obs=20);
     var Reg Type ParkName DayVisits TentCampers RVCampers;
 run;
 
-/*calculate summary statistics*/
+/* calculate summary statistics */
 proc means data=pg1.np_summary;
     var DayVisits TentCampers RVCampers;
 run;
@@ -141,7 +141,7 @@ proc univariate data=pg1.np_summary;
     var DayVisits TentCampers RVCampers;
 run;
 
-/*list unique values and frequency counts*/
+/* list unique values and frequency counts */
 proc freq data=pg1.np_summary;
     tables Reg Type;
 run;
