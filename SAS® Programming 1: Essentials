@@ -778,24 +778,124 @@ data parks monuments;
 run;
 
 
+****************************************************************************************************************
+* 5.0. Analyzing and Reporting on Data
+****************************************************************************************************************
+
+******************************************************
+* 5.1. Enhancing reports with Titles, footnotes, and Labels
+******************************************************
+
+TITLE<n> "title-text";
+FOOTNOTE<n> "footnote-text";
+
+/* for clear */
+TITLE;
+FOOTNOTE;
 
 
+title "Storm Analysis";
+title2 "Summary Statistics for MaxWind and MinPressure";
+proc means data=pg1.storm_final;
+   var MaxWindMPH MinPressure;
+run;
+title2 "Frequency Report for Basin";
+proc freq data=pg1.storm_final;
+   tables BasinName;
+run; 
+
+/* using macro variables and functions in titles and footnotes */
+
+%let age=13;
+
+title1 "Class Report";
+title2 "Age=&age";
+footnote1 "School Use Only";
+
+proc print data=pg1.class_birthdate;
+    where age=&age;
+run;
+
+title;
+footnote;
+
+/* Applying Temporary Labels to Columns */
+
+LABEL col-name="label-text";
+
+proc means data=sashelp.cars;
+    where type="Sedan";
+    var MSRP MPG_Highway;
+    label MSRP="Manufacturer Suggested Retail Price"
+          MPG_Highway="Highway Miles per Gallon";
+run; 
+
+proc print data=sashelp.cars label;
+    where type="Sedan";
+    var Make Model MSRP MPG_Highway MPG_City;
+    label MSRP="Manufacturer Suggested Retail Price"
+          MPG_Highway="Highway Miles per Gallon";
+run; 
+
+/* Segmenting Reports - by ~에 사용된 변수로 선정렬이 되어 있어야 함 -> 해당 변수로 segment 나눠져서 보고할 수 있음 */
+BY variable(s);
+
+proc sort data=sashelp.cars 
+          out=cars_sort;
+    by Origin;
+run;
+ 
+proc freq data=cars_sort;
+    by Origin;
+    tables Type;
+run;
+
+/* Demo: Enhancing Reports */
+
+proc print data=pg1.storm_final;
+    var Season Name MaxWindMPH MinPressure StartDate StormLength;
+run;
+
+proc sort data=pg1.storm_final out=storm_sort;
+    by BasinName descending MaxWindMPH;
+    where MaxWindMPH > 156;
+run;
+
+title "Category 5 Storms";
+proc print data=storm_sort label noobs;      /* 여기서 label option을 켜줘야 label 이 적용된 것을 볼 수 있음 & noobs는 앞에 1,2,3, 번호 지우는 것 */
+    by BasinName;
+    var Season Name MaxWindMPH MinPressure StartDate StormLength;
+    label MaxWindMPH="Max Wind (MPH)"
+          MinPressure="Min Pressure"
+          StartDate="Start Date"
+          StormLength="Length of Storm (days)";
+run;
+title;
 
 
+data cars_update;
+    set sashelp.cars;
+    keep Make Model MSRP Invoice AvgMPG;
+    AvgMPG=mean(MPG_Highway, MPG_City);
+    label MSRP="Manufacturer Suggested Retail Price"
+          AvgMPG="Average Miles per Gallon"
+          Invoice="Invoice Price";
+run;
 
 
+******************************************************
+* 5.2. Creating Frequency Reports
+******************************************************
 
+/* Demo: Creating Frequency Reports and Graphs - 너무나 유용! */
 
+proc freq data=pg1.storm_final;
+    tables BasinName Season;
+run; 
 
-
-
-
-
-
-
-
-
-
+proc freq data=pg1.storm_final order=freq nlevels;
+    tables BasinName Season;
+run; 
 
 
 
