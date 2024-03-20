@@ -370,6 +370,446 @@ proc sort data=class.test out=class.test_sort
 run;
 
 
+****************************************************************************************************************
+* 4.0. Preparing data
+****************************************************************************************************************
+
+******************************************************
+* 4.1. Reading and Filtering data
+******************************************************
+
+/* Using the DATA Step to Create a SAS Data Set */
+DATA=output-table;
+        SET input-table;
+RUN;
+
+data myclass;
+    set sashelp.class;
+run;
+
+data myclass;
+    set sashelp.class;
+    where age >=15;
+run;
+
+data myclass;
+    set sashelp.class;
+    where age >=15;
+    keep Name Age Height;
+run;
+
+data myclass;
+    set sashelp.class;
+    where age >=15;
+    *keep Name Age Height;
+    drop Sex Weight;
+run;
+
+data myclass;
+    set sashelp.class;
+    where age >=15;
+    format height 4.1 Weight 3.;
+run;
+
+data storm_cat5;
+    set pg1.storm_summary;
+    where StartDate>="01jan2000"d and MaxWindMPH>=156; 
+    keep Season Basin Name Type MaxWindMPH; 
+run;
+
+data fox;
+    set pg1.np_species;
+    where Category='Mammal' and upcase(Common_Names) like '%FOX%' 
+        and upcase(Common_Names) not like '%SQUIRREL%';    
+    drop Category Record_Status Occurrence Nativeness;
+run;
+
+proc sort data=fox;
+    by Common_Names;
+run;
+
+Solution:
+%let cat=Bird;
+
+data &cat;
+    set pg1.np_species;
+    where Category="&cat";
+    drop Abundance Seasonality Conservation_Status;
+run;
+
+proc freq data=&cat;
+    tables Record_Status;
+run;
+
+******************************************************
+* 4.2. Computing new columns
+******************************************************
+
+DATA output-table;
+        SET input-table;
+        new-column=expression;
+RUN;
+
+data cars_new; 
+    set sashelp.cars;
+    where Origin ne "USA"; 
+    Profit = MSRP-Invoice;
+    Source = "Non-US Cars";
+    format Profit dollar10.;
+    keep Make Model MSRP Invoice Profit Source;
+run;
+
+data tropical_storm;
+    set pg1.storm_summary;
+    drop Hem_EW Hem_NS Lat Lon;
+    where Type="TS";
+    MaxWindKM=MaxWindMPH*1.60934;
+    format MaxWindKM 3.;
+    StormType="Tropical Storm";
+run;  
+
+data storm_length;
+       set pg1.storm_summary;
+       drop Hem_EW Hem_NS lat lon;
+       StormLength = EndDate-StartDate+1;
+run;
+/* Using Numeric Functions to Create Columns
+
+function(argument1, argument2, ...);
+Common Numeric Functions
+SUM (num1, num2, ...)
+MEAN (num1, num2, ...)
+MEDIAN (num1, num2, ...)
+RANGE (num1, num2, ...)
+MIN (num1, num2, ...)
+MAX (num1, num2, ...)
+N (num1, num2, ...)
+NMISS (num1, num2, ...)
+
+*/
+
+data storm_windavg;
+    set pg1.storm_range;
+    WindAvg=mean(wind1, wind2, wind3, wind4);
+    WindRange=range(of wind1-wind4);
+run;  
+
+/* Using Character Functions
+
+Character Function |	What it Does
+UPCASE (char)
+LOWCASE(char)	 | Changes letters in a character string to uppercase or lowercase
+PROPCASE (char, <delimiters>)	 | Changes the first letter of each word to uppercase and other letters to lowercase
+CATS (char1, char2, ...) | Concatenates character strings and removes leading and trailing blanks from each argument
+SUBSTR (char, position, <length>)	| Returns a substring from a character string
+
+*/
+
+data storm_new;
+    set pg1.storm_summary;
+    drop Type Hem_EW Hem_NS MinPressure Lat Lon;
+    Basin=upcase(Basin);
+    Name=propcase(Name);
+    Hemisphere=cats(Hem_NS, Hem_EW);
+    Ocean=substr(Basin,2,1);
+run;   
+
+/* Using Date Functions
+
+Date Function	What it Does
+MONTH (SAS-date)	Returns a number from 1 through 12 that represents the month
+YEAR (SAS-date)	Returns the four-digit year
+DAY (SAS-date)	Returns a number from 1 through 31 that represents the day of the month
+WEEKDAY (SAS-date)	Returns a number from 1 through 7 that represents the day of the week (Sunday=1)
+QTR (SAS-date)	Returns a number from 1 through 4 that represents the quarter
+These functions enable you to create SAS date values from the arguments.
+
+Date Function	What it Does
+TODAY ()	Returns the current date as a numeric SAS date value (no argument is required because the function reads the system clock)
+MDY (month, day, year)	Returns a SAS date value from numeric month, day, and year values
+YRDIF (startdate, enddate, 'AGE')	Calculates a precise age between two dates
+
+*/
+
+data storm_new;
+    set pg1.storm_damage;
+    drop Summary;
+    YearsPassed=yrdif(Date,today(),"age");
+    Anniversary=mdy(month(Date),day(Date),year(today()));
+    format YearsPassed 4.1 Date Anniversary mmddyy10.; 
+run; 
+
+/* activity */
+/* level 1 */
+
+data np_summary_update;
+    set pg1.np_summary;
+    keep Reg ParkName DayVisits OtherLodging Acres SqMiles Camping;
+    SqMiles=Acres*.0015625;
+    Camping=sum(OtherCamping,TentCampers,
+                RVCampers,BackcountryCampers);
+    format SqMiles comma6. Camping comma10.;
+run;
+
+/* level 2 */
+
+data eu_occ_total;
+    set pg1.eu_occ;
+    Year=substr(YearMon,1,4);
+    Month=substr(YearMon,6,2);
+    ReportDate=MDY(Month,1,Year);
+    Total=sum(Hotel,ShortStay,Camp);
+    format Hotel ShortStay Camp Total comma17.
+           ReportDate monyy7.;
+    keep Country Hotel ShortStay Camp ReportDate Total;
+run;
+
+/* level 3 */
+
+data np_summary2;
+    set pg1.np_summary;
+    ParkType=scan(parkname,-1);
+    keep Reg Type ParkName ParkType;
+run;
+
+******************************************************
+* 4.3. Conditional Processing with IF-THEN
+******************************************************
+
+data storm_new;
+    set pg1.storm_summary;
+    keep Season Name Basin MinPressure PressureGroup;
+    if MinPressure<=920 then PressureGroup=1;
+    if MinPressure>920 then PressureGroup=0;
+run;
+
+/* 문제가 되는 틀린 코드 */
+data storm_new;
+    set pg1.storm_summary;
+    keep Season Name Basin MinPressure PressureGroup;
+    if MinPressure=. then PressureGroup=.;
+    if MinPressure<=920 then PressureGroup=1;
+    if MinPressure>920 then PressureGroup=0;
+run; 
+
+/* 여러개의 조건이 필요할 때는, IF-THEN/ELSE 이용 */
+
+IF expression THEN statement;
+<ELSE IF expression THEN statement;>
+<ELSE IF expression THEN statement;>
+
+IF expression THEN statement;
+<ELSE IF expression THEN statement;>
+<ELSE IF expression THEN statement;>
+ELSE statement;
+
+data cars2;
+    set sashelp.cars;
+    if MSRP<20000 then Cost_Group=1;
+    else if MSRP<40000 then Cost_Group=2;
+    else if MSRP<60000 then Cost_Group=3;
+    else Cost_Group=4;
+    keep Make Model Type MSRP Cost_Group;
+run;
+
+data cars2;
+    set sashelp.cars;
+    if MPG_City>26 and MPG_Highway>30 then Efficiency=1;
+    else if MPG_City>20 and MPG_Highway>25 then Efficiency=2;
+    else Efficiency=3;
+    keep Make Model MPG_City MPG_Highway Efficiency;
+run;
+
+data storm_cat;
+    set pg1.storm_summary;
+    keep Name Basin MinPressure StartDate PressureGroup;
+    *add ELSE keyword and remove final condition;
+    if MinPressure=. then PressureGroup=.;
+    else if MinPressure<=920 then PressureGroup=1;
+    else PressureGroup=0;
+run; 
+
+
+/* Creating Character Columns with the LENGTH statement - 문자열 변수의 길이는 따로 지정해줘야함 */
+LENGTH char-column $ length;
+
+data cars2;
+    set sashelp.cars;
+    if MSRP<60000 then CarType="Basic";
+    else CarType="Luxury";
+    keep Make Model MSRP CarType;
+run;
+
+data storm_summary2;
+    set pg1.storm_summary;
+    length Ocean $ 8;
+    keep Basin Season Name MaxWindMPH Ocean;
+    Basin=upcase(Basin);
+    OceanCode=substr(Basin,2,1);
+    if OceanCode="I" then Ocean="Indian";
+    else if OceanCode="A" then Ocean="Atlantic";
+    else Ocean="Pacific";
+run;
+
+
+/* IF-THEN/DO : then 뒤에 여러개의 명령어가 필요한 경우 사용 */
+IF expression THEN DO;
+    <executable statements>
+END;
+ELSE IF expression THEN DO;
+    <executable statements>
+END;
+ELSE DO;
+    <executable statements>
+END;
+
+data under40 over40;
+    set sashelp.cars;
+    keep Make Model msrp cost_group;
+    if MSRP<20000 then do;
+       Cost_Group=1;
+       output under40;
+    end;
+    else if MSRP<40000 then do;
+       Cost_Group=2;
+       output under40;
+    end;
+    else do;
+       Cost_Group=3;
+       output over40;
+    end;
+run;
+
+data front rear;
+    set sashelp.cars;
+    if DriveTrain="Front" then do;
+        DriveTrain="FWD";
+        output front;
+    end;    
+    else if DriveTrain='Rear' then do;
+        DriveTrain="RWD";
+        output rear;
+    end;    
+run;
+
+
+
+data indian atlantic pacific;
+    set pg1.storm_summary;
+    length Ocean $ 8;
+    keep Basin Season Name MaxWindMPH Ocean;
+    Basin=upcase(Basin);
+    OceanCode=substr(Basin,2,1);
+    if OceanCode="I" then do;
+       Ocean="Indian";
+       output indian;
+    end;
+    else if OceanCode="A" then do;
+       Ocean="Atlantic"; 
+       output atlantic;
+    end;
+    else do;
+       Ocean="Pacific";
+       output pacific;
+    end;
+run;
+
+/* activity */
+/* level 1 */
+
+data park_type;
+	set pg1.np_summary;
+	length ParkType $ 8;
+    if Type='NM' then ParkType='Monument';
+    else if Type='NP' then ParkType='Park';
+    else if Type in ('NPRE', 'PRE', 'PRESERVE') then
+        ParkType='Preserve';
+    else if Type in ('RVR', 'RIVERWAYS') then ParkType='River';
+    else if Type='NS' then ParkType='Seashore';
+run;
+
+proc freq data=park_type;
+    tables Type;
+run;
+
+/* level 2 */
+
+Solution:
+data parks monuments;
+    set pg1.np_summary;
+    where type in ('NM', 'NP');
+
+    Campers=sum(OtherCamping, TentCampers, RVCampers,
+                BackcountryCampers);
+    format Campers comma17.;
+
+    length ParkType $ 8;
+    if type='NP' then do;
+        ParkType='Park';
+        output parks;
+    end;
+    else do;
+        ParkType='Monument';
+        output monuments;
+    end;
+  keep Reg ParkName DayVisits OtherLodging Campers ParkType;
+run;
+
+/* level 3 - 위의 동일한 문장을 select/when 을 사용해서 바꾸기 */
+
+data parks monuments;
+    set pg1.np_summary;
+    where type in ('NM', 'NP');
+    Campers=sum(OtherCamping, TentCampers, RVCampers,
+                BackcountryCampers);
+    format Campers comma17.;
+    length ParkType $ 8;
+    select (type);
+        when ('NP') do;
+            ParkType='Park';
+            output parks;
+		end;
+		otherwise do;
+            ParkType='Monument';
+            output monuments;
+		end;
+    end;
+    keep Reg ParkName DayVisits OtherLodging Campers ParkType;
+run;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
