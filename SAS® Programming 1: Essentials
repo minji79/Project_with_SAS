@@ -887,7 +887,8 @@ run;
 * 5.2. Creating Frequency Reports
 ******************************************************
 
-/* Demo: Creating Frequency Reports and Graphs - 너무나 유용! */
+/************* Demo: Creating Frequency Reports and Graphs - 너무나 유용! *************/
+/************* one-ways freq table *************/
 
 proc freq data=pg1.storm_final;
     tables BasinName Season;
@@ -897,18 +898,223 @@ proc freq data=pg1.storm_final order=freq nlevels;
     tables BasinName Season;
 run; 
 
+proc freq data=pg1.storm_final order=freq nlevels;
+    tables BasinName Season / nocum;
+run; 
+
+proc freq data=pg1.storm_final order=freq nlevels;
+    tables BasinName StartDate / nocum;
+    format StartDate monname.;
+run;
+
+/* graph 그리기 위해서 ods graphics on; 라는 글로벌 statement으로 기능 켜고, plots 그림 */
+
+ods graphics on;
+proc freq data=pg1.storm_final order=freq nlevels;
+    tables BasinName StartDate /
+           nocum plots=freqplot(orient=horizontal scale=percent);
+    format StartDate monname.;
+run; 
+
+ods graphics on;
+ods noproctitle;
+title "Frequency Report for Basin and Storm Month";
+proc freq data=pg1.storm_final order=freq nlevels;
+    tables BasinName StartDate / 
+           nocum plots=freqplot(orient=horizontal scale=percent);
+    format StartDate monname.;
+    label BasinName="Basin"
+          StartDate="Storm Month";
+run;
+title;
+ods proctitle; 
+
+/* activity */
+
+title "Frequency Report for Basin and Storm Month";
+
+proc freq data=pg1.storm_final order=freq noprint;
+    tables StartDate / out=storm_count;
+    format StartDate monname.;
+run;
+
+/************* two-ways freq table *************/
+PROC FREQ DATA=input-table < options >;
+        TABLES col-name*col-name < / options >;
+RUN;
+
+proc freq data=pg1.storm_final;
+    tables BasinName*StartDate;
+    format StartDate monname.;
+    label BasinName="Basin"
+          StartDate="Storm Month";
+run;
+
+tables BasinName*StartDate / norow nocol nopercent;
+
+tables BasinName*StartDate / crosslist;
+
+tables BasinName*StartDate / list;
+
+proc freq data=pg1.storm_final noprint;
+    tables StartDate*BasinName / out=stormcounts;
+    format StartDate monname.;
+    label BasinName="Basin"
+          StartDate="Storm Month";
+run;
 
 
+/* activity */
+/* level1 | Creating one-Way Frequency Reports */
+
+title1 "Categories of Reported Species";
+proc freq data=pg1.np_species order=freq;
+    tables Category / nocum;
+run;
+
+ods graphics on;
+ods noproctitle;
+title1 "Categories of Reported Species";
+title2 "in the Everglades";
+proc freq data=pg1.np_species order=freq;
+    tables Category / nocum plots=freqplot;
+    where Species_ID like "EVER%" and 
+          Category ne "Vascular Plant";
+run;
+title;
+
+/* level2 | Creating two-Way Frequency Reports */
+
+title1 'Park Types by Region';
+proc freq data=pg1.np_codelookup order=freq;
+    tables Type*Region / nocol;
+    where Type not like '%Other%';
+run;
+
+title1 'Selected Park Types by Region';
+ods graphics on;
+proc freq data=pg1.np_codelookup order=freq;
+    tables Type*Region / nocol;
+    where Type not like '%Other%';
+run;
+
+title1 'Selected Park Types by Region';
+ods graphics on;
+proc freq data=pg1.np_codelookup order=freq;
+    tables Type*Region /  nocol crosslist 
+           plots=freqplot(groupby=row scale=grouppercent orient=horizontal);
+    where Type in ('National Historic Site', 'National Monument', 'National Park');
+run;
+title;
+
+/* Challenge Practice: Creating a Customized Graph of a Two-Way Frequency Table */
+proc sgplot data=pg1.np_codelookup;
+	where Type in ('National Historic Site', 'National Monument', 'National Park');
+	hbar region / group=type seglabel
+                  fillattrs=(transparency=0.5) dataskin=crisp;
+	keylegend / opaque across=1 position=bottomright
+                location=inside;
+    xaxis grid;
+run;
+title;
+
+******************************************************
+* 5.3. Creating Summary Reports and Data
+******************************************************
+
+/************* Demo: Creating Summary Statistics Reports *************/
+
+PROC MEANS DATA=input-table <stat-list>;
+        VAR col-name(s);
+        CLASS col-name(s);
+        WAYS n;
+RUN;
+
+proc means data=pg1.storm_final mean median min max maxdec=0;
+    var MaxWindMPH;
+run;   
+
+proc means data=pg1.storm_final mean median min max maxdec=0;
+    var MaxWindMPH;
+    class BasinName;   /* by - 와 비슷한 역할을 함 */
+run;  
+
+proc means data=pg1.storm_final mean median min max maxdec=0;
+    var MaxWindMPH;
+    class BasinName StormType;
+run;   
+
+proc means data=pg1.storm_final mean median min max maxdec=0;
+    var MaxWindMPH;
+    class BasinName StormType;
+    ways 1;
+run;
+
+proc means data=pg1.storm_final mean median min max maxdec=0;
+    var MaxWindMPH;
+    class BasinName StormType;
+    ways 0 1 2;
+run;
 
 
+proc means data=pg1.storm_final maxdec=0 n mean min;
+    var MinPressure;
+    where Season >=2010;
+    class Season Ocean;
+run;
 
+proc means data=pg1.storm_final maxdec=0 n mean min;
+    var MinPressure;
+    where Season >=2010;
+    class Season Ocean;
+    ways 1;
+run;
 
+/* Creating an Output Summary Table */
+OUTPUT OUT=output-table <statistic(col-name)=col-name> </ option(s)>;
 
+proc means data=sashelp.heart noprint;
+    var Cholesterol Weight;
+    class Chol_Status Smoking_Status;
+    output out=heart_stats mean=AvgWeight; 
+run; 
 
+proc means data=pg1.storm_final noprint;
+    var MaxWindMPH;
+    class BasinName;
+    ways 1;
+    output out=wind_stats;
+	/* output out=wind_stats mean=AvgWind max=MaxWind; 이렇게 사용할 수도 있음 */ 
+run;
 
+/* activity */
+/* Level 1 Practice: Producing a Descriptive Statistic Report */
 
+title1 "Weather Statistics by Year and Park";
 
+proc means data=pg1.np_westweather mean min max maxdec=2;
+	var Precip Snow TempMin TempMax;
+	class Year Name;
+run;
+title;
 
+/* Level 2 Practice: Creating an Output Table with Custom Columns */
+
+proc means data=pg1.np_westweather noprint;
+	where Precip ne 0;
+	var Precip;
+	RainDays = obs();
+	TotalRain = sum();
+	keep Year Name;
+	output out=rainstats;
+run;
+
+title1 'Rain Statistics by Year and Park';
+proc print data=rainstats;
+	var Name Year RainDays TotalRain;
+	label Name='Park Name' RainDays='Number of Days Raining' TotalRain='Total Rain Amount (inches)';
+rin;
+title;
 
 
 
