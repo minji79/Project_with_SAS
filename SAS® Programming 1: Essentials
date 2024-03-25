@@ -1116,6 +1116,45 @@ proc print data=rainstats;
 rin;
 title;
 
+****************************************************************************************************************
+* 6.0. Exporting Results
+****************************************************************************************************************
+
+******************************************************
+* 5.1. Exporting Data
+******************************************************
+
+PROC EXPORT DATA=input-table OUTFILE="output-file"
+                           <DBMS =identifier> <REPLACE>;
+RUN;
+
+/************* Exporting Data *************/
+
+proc export data=sashelp.cars
+     outfile="s:/workshop/output/cars.txt"
+     dbms=tab replace;
+run;
+
+proc export data=pg1.storm_final 
+	outfile="&outpath/storm_final.csv"     /* 이렇게 하면 outpath에 여러가지 변수를 넣을 수 있음 */
+	dbms=csv replace;
+run;
+
+/************* Demo: Exporting Data to an Excel Workbook *************/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
