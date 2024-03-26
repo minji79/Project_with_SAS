@@ -1121,7 +1121,7 @@ title;
 ****************************************************************************************************************
 
 ******************************************************
-* 5.1. Exporting Data
+* 6.1. Exporting Data
 ******************************************************
 
 PROC EXPORT DATA=input-table OUTFILE="output-file"
@@ -1140,12 +1140,71 @@ proc export data=pg1.storm_final
 	dbms=csv replace;
 run;
 
+
+/************* Activity 1 *************/
+/************* Activity 2 *************/
+
+proc export data = pg1.storm_final 
+	outfile = "&outpath/storm_final.csv"
+	dbms = csv replace;
+run;
+
 /************* Demo: Exporting Data to an Excel Workbook *************/
 
+libname myxl xlsx "&outpath/cars.xlsx";
+
+data myxl.asiacars;
+    set sashelp.cars;
+    where origin='Asia';
+run;
+
+libname myxl clear;
 
 
 
+data South_Pacific;
+    set pg1.storm_final;
+    where Basin="SP";
+run;
 
+proc means data=pg1.storm_final noprint maxdec=1;
+    where Basin="SP";
+    var MaxWindKM;
+    class Season;
+    ways 1;
+    output out=Season_Stats n=Count mean=AvgMaxWindKM max=StrongestWindKM;
+run;
+
+
+libname xlout xlsx "&outpath/southpacific.xlsx";
+data xlout.South_Pacific;
+    set pg1.storm_final;
+    where Basin="SP";
+run;
+
+proc means data=pg1.storm_final noprint maxdec=1;
+    where Basin="SP";
+    var MaxWindKM;
+    class Season;
+    ways 1;
+    output out=xlout.Season_Stats n=Count mean=AvgMaxWindKM max=StrongestWindKM;
+run; 
+
+libname xlout clear;
+
+
+/************* Activity 3 *************/
+
+libname xl_lib xlsx "&outpath/storm.xlsx";
+data xl_lib.storm_final;
+	set pg1.storm_final;
+	drop Lat Lon Basin OceanCode;
+run;
+libname xl_lib clear;
+
+******************************************************
+* 6.2. Exporting Reports
+******************************************************
 
 
 
