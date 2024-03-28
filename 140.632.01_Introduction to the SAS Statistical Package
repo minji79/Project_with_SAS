@@ -77,7 +77,30 @@ proc print data=work.class;
 run;
 
 
+****************************************************
+* 3/28 | 2. 
+****************************************************
 
+/* comment block */
+
+/* error 1 | none will be selected */
+
+proc print data = sashelp.class;
+	where age > 14 and age < 14;
+run;
+
+/* error 2 | two where statements will not be allowed -> no error message - only second command will work */
+
+proc print data = sashelp.class;
+	where age > 14;
+  where age < 15;
+run;
+
+proc print data = sashelp.class;
+	where age > 14;
+  var name;
+  where age < 15;
+run;
 
 
 
