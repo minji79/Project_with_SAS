@@ -1,4 +1,4 @@
-/* 0.0 - Access */
+* 0.0 - Access;
 
 ssh -X mkim@jhpce03.jhsph.edu
 cd /dcs07/trinetx/data/
@@ -8,112 +8,158 @@ srun --pty --x11 bash
 module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
 
-*******************************************************************************************************************************
-  * Progname: 01_exploredata.sas
-  * Date(due): 2024.03.04
-  * Detail: 
-*******************************************************************************************************************************
+/****************************************************************************
+| Program name : 
+| Date (update): 24.03.04
+| Project name : Trinetx - inital data analysis
+| Purpose      : 
+****************************************************************************/
+
 
 *************************************************************************
 * 1.0 - Set up the environment in JHPCE *
 *************************************************************************
 
-/* srcdata and sp5data are hemal datasets */
+* My own directory for analysis in my own directory:     /users/mkim/trinetx/5p_test
+* My own directory for sharing in team folder:           /dcs07/trinetx/data/Users/MJ
+
+* to use original-data and 5p-data from the teamfolder;
+
 libname tx "/dcs07/trinetx/data/SAS_datasets";
 libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
-libname test "/dcs07/trinetx/data/test_data";
+libname test "/dcs07/trinetx/data/test_data";       * this lib was from lijuan;
 
-/* location for my data analysis - team directory */
-libname analysis "/dcs07/trinetx/data/test_sas/5p";
+* to locate my own data analysis output;
+
+libname analysis "/dcs07/trinetx/data/test_sas/5p";   * in the original location in teamfolder; 
+libname share "/dcs07/trinetx/data/Users/MJ";         * under users in teamfolder - for sharing;
+libname mj "/users/mkim/trinetx/5p_test";             * in my own directory;
 
 
 *************************************************************************
 * 2.0 - Explore the data *
 *************************************************************************
 
-*************
- * vitals *
-*************
+/**************************************************
+* new dataset: mj.vitals_signs_5p
+* original dataset: tx5p.vitals_signs
+* description: copy file from tx5p.vitals_signs
+**************************************************/
 
-/* set the table and convert result values from character to numeric */
+* Step 1. copy the original dataset and convert 'result' values from character to numeric;
 
 proc contents data=tx5p.vitals_signs;
 run;
 
-data analysis.test_vitals;
+data mj.vitals_signs_5p;
   set tx5p.vitals_signs;
   num_value = input(value, 8.);
-  replace;
 run;
 
-proc contents data=analysis.test_vitals;
+proc contents data=mj.vitals_signs_5p; run;
+
+proc print data=mj.vitals_signs_5p (obs=20); 
+ title "mj.vitals_signs_5p";
 run;
 
-proc print data=analysis.test_vitals (obs=20);
-run;
+/**************************************************
+* new dataset: mj.vitals_signs_5p_codelist
+* original dataset: mj.vitals_signs_5p
+* description: listup distinct value of the code_system variable
+               after checking distinct value of the code_system variable from tx.vitals_signs
+**************************************************/
 
+* Step 2. distinct value of the code_system variable (어떤 코딩 시스템이 쓰이는지 확인하는 목적);
 
-/* to list up the LOINC variables in vitals dataset */
-
-proc print data=analysis.test_vitals (obs=20);
-  var code_system code units_of_measure;
-  where code_system = "LOINC";
-run;
-
-proc sort data=analysis.test_vitals out=analysis.list_vt   
-    nodupkey;
-    where code_system = "LOINC";  
-    by descending code;               
-run;                                     /* there were 74 obs */
-
-proc print data=analysis.list_vt (obs=80); 
-  var code_system code units_of_measure;
-run;
-
-proc contents data=analysis.list_vt;
-run;
-
-
-/* distinct value of the coding system variable */
-proc print data=tx.vitals_signs (obs=100);
+proc print data=tx.vitals_signs (obs=100);     * to check the original set;
 run;
 
 proc sql;
-  create table analysis.test_vitals_code_list as
+  create table mj.vitals_signs_5p_codelist as
   select distinct code_system
   from tx.vitals_signs; 
 quit;     
-proc print data=analysis.test_vitals_code_list; run;
+
+proc print data=mj.vitals_signs_5p_codelist; 
+ title "[vitals_signs_5p] distinct code list";
+run;
+
+************************************************************************** re-runnung **************************************************************************
+
+* Step 3. list up the LOINC variables in vitals dataset;
+
+proc print data=mj.vitals_signs_5p (obs=20);
+  var code_system code units_of_measure;
+  * where code_system = "LOINC";
+run;
+
+proc sort data=mj.vitals_signs_5p out=mj.vitals_signs_5p_codelist
+    nodupkey;
+    * where code_system = "LOINC";
+    by descending code;               
+run;                                     * there were 74 obs;
+
+proc print data=mj.vitals_signs_5p_codelist (obs=80); 
+  var code_system code units_of_measure;
+ title "[vitals_signs_5p] distinct code list";
+run;
+
+proc contents data=mj.vitals_signs_5p_codelist;
+run;
 
 
-******************
-  * lab_result *
-******************
+/**************************************************
+* new dataset: mj.lab_result_5p
+* original dataset: tx5p.lab_result
+* description: copy file from tx5p.lab_result
+**************************************************/
 
-/* set the table and convert result values from character to number*/
+* Step 1. copy the original dataset and convert 'result' values from character to numeric;
 
 proc contents data=tx5p.lab_result;
 run;
 
-data analysis.test_lab;    
+data mj.lab_result_5p;    
   set tx5p.lab_result;
   lab_result_num_val = input(value, 8.);
-run;                                /* there were 319431133 obs */
+run;                                       * there were 319431133 obs;
 
-proc contents data=analysis.test_lab;
+proc contents data=mj.lab_result_5p;
 run;
 
+************************************************************************** in processing **************************************************************************
 
-/* to list up the LOINC variables in lab dataset */
+/**************************************************
+* new dataset: mj.lab_result_5p_codelist
+* original dataset: mj.lab_result_5p
+* description: distinct value of the code_system variable
+**************************************************/
 
-proc print data=analysis.test_lab (obs=20);
+* Step 2. distinct value of the code_system variable (어떤 코딩 시스템이 쓰이는지 확인하는 목적);
+
+proc print data=tx.lab_result (obs=100);     * to check the original set;
+run;
+
+proc sql;
+  create table mj.lab_result_5p_codelist as
+  select distinct code_system
+  from tx.lab_result; 
+quit;     
+
+proc print data=mj.lab_result_5p_codelist; 
+ title "[lab_result_5p] distinct code list";
+run;
+
+* Step 3. list up the LOINC variables in vitals dataset;
+
+proc print data=mj.lab_result_5p (obs=20);
   var code_system code units_of_measure;
-  where code_system = "LOINC";
+  * where code_system = "LOINC";
 run;
 
-proc sort data=analysis.test_lab out=analysis.list_lab
+proc sort data=mj.lab_result_5p out=mj.lab_result_5p_codelist
     nodupkey;
-    where code_system = "LOINC";
+    * where code_system = "LOINC";
     by descending code;               
 run;                                     /* there were 13,776 obs */
 
