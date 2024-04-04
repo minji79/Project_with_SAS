@@ -19,7 +19,7 @@ sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS
 *************************************************************************
 
 /* srcdata and sp5data are hemal datasets */
-libname tx "/dcs07/trinetx/data/SAS datasets";
+libname tx "/dcs07/trinetx/data/SAS_datasets";
 libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
 libname test "/dcs07/trinetx/data/test_data";
 
@@ -35,7 +35,7 @@ libname analysis "/dcs07/trinetx/data/test_sas/5p";
  * vitals *
 *************
 
-/* set the table and convert result values from character to numeric*/
+/* set the table and convert result values from character to numeric */
 
 proc contents data=tx5p.vitals_signs;
 run;
@@ -72,6 +72,19 @@ run;
 
 proc contents data=analysis.list_vt;
 run;
+
+
+/* distinct value of the coding system variable */
+proc print data=tx.vitals_signs (obs=100);
+run;
+
+proc sql;
+  create table analysis.test_vitals_code_list as
+  select distinct code_system
+  from tx.vitals_signs; 
+quit;     
+proc print data=analysis.test_vitals_code_list; run;
+
 
 ******************
   * lab_result *
@@ -110,6 +123,19 @@ run;
 
 proc contents data=analysis.list_lab;
 run;
+
+/* distinct value of the coding system variable */
+proc print data=tx.lab_result (obs=100);
+run;
+
+proc sql;
+  create table analysis.test_vitals_code_list as
+  select distinct code_system
+  from tx.vitals_signs; 
+quit;     
+proc print data=analysis.test_vitals_code_list; run;
+
+
 
 *************************************************************************
 * 2.1 - Map standardized_terminology *
