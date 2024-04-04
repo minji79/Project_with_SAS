@@ -1,0 +1,28 @@
+
+
+/****************************************************************************
+| Program name : BMI 
+| Date (update):
+| Project name :
+| Purpose      : Create covariate - co-medications
+****************************************************************************/
+
+ 
+* Step 1. all people form vitals with 39156-5 and  all people from lab with 89270-3 and make them in one table;
+
+proc sort data = comp_eff.pdesaf out = comp_eff.pdesaf nodup; by patient_id; run; *177158183;
+data comp_eff.Pdesaf_rx;			
+	merge comp_eff.pdesaf comp_eff.covariate_12(keep = patient_id in=in2);
+	by patient_id;
+	if in2;
+run;
+proc sort data = comp_eff.Pdesaf_rx out = comp_eff.Pdesaf_rx nodup; by patient_id; run;
+
+
+
+```sas
+@GetMapping("/videos")
+public ResponseEntity<List<VideoListResponse>> getVideoRandomList() {
+    return new ResponseEntity<>(videoService.getRandomVideos(RANDOM_VIDEO_ACCESS_SIZE), HttpStatus.OK);
+}
+```
