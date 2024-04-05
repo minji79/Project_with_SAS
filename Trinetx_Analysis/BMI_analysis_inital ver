@@ -5,6 +5,7 @@ cd /dcs07/trinetx/data/
 cd /users/mkim/
 
 srun --pty --x11 bash
+     /* srun --pty --x11 --partition sas bash */
 module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
 
