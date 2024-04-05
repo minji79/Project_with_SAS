@@ -5,6 +5,7 @@ cd /dcs07/trinetx/data/
 cd /users/mkim/
 
 srun --pty --x11 bash
+     /* srun --pty --x11 --partition sas bash */
 module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
 
@@ -28,6 +29,7 @@ sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS
 libname tx "/dcs07/trinetx/data/SAS_datasets";
 libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
 libname test "/dcs07/trinetx/data/test_data";       * this lib was from lijuan;
+libname rayna "/dcs07/trinetx/data/Users/Rayna";     * this lib was from Rayna;
 
 * to locate my own data analysis output;
 
@@ -349,6 +351,53 @@ run;
 
 ods rtf file="users/mkim/trinetx/output/01_exploredata_5p.rtf";
 footnote "Outputs generated from &progname..sas";
+
+
+*************************************************************************
+* read rayna file
+*************************************************************************
+
+%LET raynafile=glp_fp_long;
+
+/* analytic */
+* 1. analytic;
+
+/* bmi */
+* 1. bmi_6monprior;
+* 2. bmi_after;
+* 3. bmi_baseline;
+* 4. bmi_byquarter;
+* 5. bmi_deduplicate;
+* 6. bmi_fp_long;
+* 7. bmi_fp;
+* 8. bmi_nomissing;
+* 9. bmi_prior_1stmeds_ingredient;
+* 10. bmi;
+
+/* ingredient */
+* 1. glp1_ingredient57_byquarter;
+* 2. glp1_ingredient_after_index57;
+* 3. glp1_user_adult_nomissingsex;
+* 4. glp1_user_all_formated;
+* 5. glp1_user_all;
+* 6. glp1_user;
+* 7. glp_after_index;
+* 8. glp_bl_fp_long;
+* 9. glp_bl_fp;
+* 10. glp_fp_long;
+
+proc print data=rayna.&raynafile (obs=30);
+  title "rayna_&raynafile";
+run;
+proc contents data=rayna.&raynafile; run;
+
+
+glp_on_after_index
+index_date_all
+metformin_all
+sociodemo_all
+sociodemo_cohort
+
 
 
 ******************************************************************************************************************************************************
