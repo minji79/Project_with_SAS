@@ -26,6 +26,7 @@ sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS
 libname tx "/dcs07/trinetx/data/SAS_datasets";
 libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
 libname test "/dcs07/trinetx/data/test_data";       * this lib was from lijuan;
+libname rayna "/dcs07/trinetx/data/Users/Rayna";     * this lib was from Rayna;
 
 * to locate my own data analysis output in the original location in teamfolder;
 libname analysis "/dcs07/trinetx/data/test_sas/5p";
