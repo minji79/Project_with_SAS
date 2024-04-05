@@ -357,8 +357,6 @@ footnote "Outputs generated from &progname..sas";
 * read rayna file
 *************************************************************************
 
-%LET raynafile=glp_fp_long;
-
 /* analytic */
 * 1. analytic;
 
@@ -385,6 +383,8 @@ footnote "Outputs generated from &progname..sas";
 * 8. glp_bl_fp_long;
 * 9. glp_bl_fp;
 * 10. glp_fp_long;
+
+%LET raynafile=glp_fp_long;
 
 proc print data=rayna.&raynafile (obs=30);
   title "rayna_&raynafile";
