@@ -129,7 +129,6 @@ run;                                       * there were 319431133 obs;
 proc contents data=mj.lab_result_5p;
 run;
 
-************************************************************************** in processing **************************************************************************
 
 /**************************************************
 * new dataset: mj.lab_result_5p_codelist
@@ -140,6 +139,7 @@ run;
 * Step 2. distinct value of the code_system variable (어떤 코딩 시스템이 쓰이는지 확인하는 목적);
 
 proc print data=tx.lab_result (obs=100);     * to check the original set;
+     title "tx.lab_result";
 run;
 
 proc sql;
@@ -147,6 +147,7 @@ proc sql;
   select distinct code_system
   from tx.lab_result; 
 quit;     
+************************************************************************** in processing **************************************************************************
 
 proc print data=mj.lab_result_5p_codelist; 
  title "[lab_result_5p] distinct code list";
@@ -358,7 +359,8 @@ footnote "Outputs generated from &progname..sas";
 *************************************************************************
 
 /* analytic */
-* 1. analytic;
+* 1. index_date_all;
+* 2. analytic;
 
 /* bmi */
 * 1. bmi_6monprior;
@@ -382,9 +384,15 @@ footnote "Outputs generated from &progname..sas";
 * 7. glp_after_index;
 * 8. glp_bl_fp_long;
 * 9. glp_bl_fp;
-* 10. glp_fp_long;
+* 10. glp_on_after_index;
+* 11. metformin_all;
+* 00. glp_fp_long;    * no observation in this dataset;
 
-%LET raynafile=glp_fp_long;
+/* demogragph */
+* 1. sociodemo_all;
+* 2. sociodemo_cohort;
+
+%LET raynafile=sociodemo_cohort;
 
 proc print data=rayna.&raynafile (obs=30);
   title "rayna_&raynafile";
@@ -392,11 +400,6 @@ run;
 proc contents data=rayna.&raynafile; run;
 
 
-glp_on_after_index
-index_date_all
-metformin_all
-sociodemo_all
-sociodemo_cohort
 
 
 
