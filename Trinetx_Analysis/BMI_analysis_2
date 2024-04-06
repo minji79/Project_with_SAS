@@ -73,6 +73,52 @@ proc print data=mj.bmi_date (obs=30) label;
 	title "mj.bmi_date";
 run;
 
+* 5. format date;
+
+proc contents data= mj.bmi_date;
+run;
+
+data mj.bmi_date;
+	set mj.bmi_date;
+	date_num = input(date, yymmdd8.);
+	startdate_num = input(startdate, yymmdd8.);
+	format date_num startdate_num yymmdd10.;
+run;
+
+data mj.bmi_date;
+	set mj.bmi_date;
+	drop date_f startdate_f;
+run;
+
+data mj.bmi_date;
+    set mj.bmi_date;
+    /* Assuming date and startdate are character variables in the format 'YYYYMMDD' */
+    date_num = input(date, yymmdd8.);
+    startdate_num = input(startdate, yymmdd8.);
+    format date_num startdate_num yymmdd10.;
+    drop date startdate;
+    rename date_num=date startdate_num=startdate;
+run;
+
+
+data mj.bmi_date;
+	set mj.bmi_date;
+	format date startdate yymmdd10.;
+run;
+
+startdate = input(startdate, 10.);
+	
+
+proc print data=mj.bmi_date (obs=30);
+	title "mj.bmi_date";
+run;
+
+
+data mj.vitals_signs_5p;
+  set tx5p.vitals_signs;
+  num_value = input(value, 8.);
+run;
+
 * 5. calculate the gap between startdate and date;
 
 data mj.bmi_date;
