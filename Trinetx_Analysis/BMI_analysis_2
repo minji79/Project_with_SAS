@@ -1,5 +1,108 @@
 /****************************************************************************
-| Program name : BMI 
+| Program name : BMI time 
+| Date (update):
+| Project name :
+| Purpose      : Create new BMI files from vitals and lap
+****************************************************************************/
+
+* 0. patients - date of BMI measurement - BMI;
+
+proc contents data=mj.vitals_signs_5p;
+	title "mj.vitals_signs_5p";
+run;
+
+proc print data=mj.vitals_signs_5p (obs=30);
+	title "mj.vitals_signs_5p";
+run;
+
+/**************************************************
+* new dataset: mj.bmi
+* original dataset: mj.vitals_signs_5p
+* description: only bmi info sorted by patients.id
+**************************************************/
+
+* 1. make a table with only BMI information;
+
+proc sort data=mj.vitals_signs_5p 
+		out=mj.bmi;
+	where code="39156-5";
+	by patient_id;
+run;
+
+proc print data=mj.bmi (obs=30);      * this is basic form of the "mj.bmi" table;
+	title "mj.bmi";
+run;
+
+* 2. print "patients - date of BMI measurement - BMI';
+
+proc print data=mj.bmi (obs=30) label;
+	label date = "Date"
+		num_value = "BMI";
+	var patient_id date num_value;
+	title "[mj.bmi] BMI measurement date";
+run;
+
+* 3. add variable named 'startdate' to indicate 'minimum date of BMI measurement';
+
+proc sql;
+	create table mj.bmi_startdate as
+	select patient_id, min(date) as startdate
+	from mj.bmi
+	group by patient_id;
+quit;
+proc print data=mj.bmi_startdate (obs=30);
+	title "mj.bmi_startdate";
+run;
+
+* 4. do mapping startdate with 'mj.bmi' table by patient.id;
+
+proc sql;
+  create table mj.bmi_date as
+  select distinct a.*, b.startdate
+  from mj.bmi a left join mj.bmi_startdate b 
+  on a.patient_id=b.patient_id;
+quit;
+
+proc sort data=mj.bmi_date;
+	by patient_id date;
+run;
+
+proc print data=mj.bmi_date (obs=30) label;
+	var patient_id startdate date num_value;
+	label num_value = "BMI";
+	title "mj.bmi_date";
+run;
+
+* 5. calculate the gap between startdate and date;
+
+data mj.bmi_date;
+	set mj.bmi_date;
+	gap = date - startdate;
+run;
+
+proc print data=mj.bmi_date (obs=30) label;
+	var patient_id startdate date gap num_value;
+	label num_value = "BMI";
+	title "mj.bmi_date";
+run;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+************************************************************************************************************************************************************************************************************************************
+
+/****************************************************************************
+| Program name : BMI time 
 | Date (update):
 | Project name :
 | Purpose      : Create new BMI files from vitals and lap
@@ -9,10 +112,6 @@
 * using Vitals files; 
 
 proc means data=
-
-
-
-
 
 * Step 3. all people form vitals with 39156-5 and  all people from lab with 89270-3 and make them in one table;
 
