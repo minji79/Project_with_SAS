@@ -44,6 +44,12 @@ run;
 
 * 3. add variable named 'startdate' to indicate 'minimum date of BMI measurement';
 
+/**************************************************
+* new dataset: mj.bmi_startdate
+* original dataset: mj.bmi
+* description: indicate the min(date) as startdate
+**************************************************/
+
 proc sql;
 	create table mj.bmi_startdate as
 	select patient_id, min(date) as startdate
@@ -55,6 +61,12 @@ proc print data=mj.bmi_startdate (obs=30);
 run;
 
 * 4. do mapping startdate with 'mj.bmi' table by patient.id;
+
+/**************************************************
+* new dataset: mj.bmi_date
+* original dataset: mj.bmi + mj.bmi_startdate
+* description: left join mj.bmi & mj.bmi_startdate
+**************************************************/
 
 proc sql;
   create table mj.bmi_date as
@@ -75,70 +87,69 @@ run;
 
 * 5. format date;
 
-proc contents data= mj.bmi_date;
-run;
-
 data mj.bmi_date;
 	set mj.bmi_date;
 	date_num = input(date, yymmdd8.);
 	startdate_num = input(startdate, yymmdd8.);
 	format date_num startdate_num yymmdd10.;
-run;
-
-data mj.bmi_date;
-	set mj.bmi_date;
-	drop date_f startdate_f;
-run;
-
-data mj.bmi_date;
-    set mj.bmi_date;
-    /* Assuming date and startdate are character variables in the format 'YYYYMMDD' */
-    date_num = input(date, yymmdd8.);
-    startdate_num = input(startdate, yymmdd8.);
-    format date_num startdate_num yymmdd10.;
-    drop date startdate;
+	drop date startdate;
     rename date_num=date startdate_num=startdate;
 run;
 
-
-data mj.bmi_date;
-	set mj.bmi_date;
-	format date startdate yymmdd10.;
+proc contents data = mj.bmi_date;
+	title "mj.bmi_date";
 run;
 
-startdate = input(startdate, 10.);
-	
-
-proc print data=mj.bmi_date (obs=30);
+proc print data = mj.bmi_date (obs = 30);
 	title "mj.bmi_date";
 run;
 
 
-data mj.vitals_signs_5p;
-  set tx5p.vitals_signs;
-  num_value = input(value, 8.);
-run;
-
-* 5. calculate the gap between startdate and date;
+* 6. calculate the gap between startdate and date;
 
 data mj.bmi_date;
 	set mj.bmi_date;
 	gap = date - startdate;
 run;
 
+proc print data = mj.bmi_date (obs = 30);
+	title "mj.bmi_date";
+run;
+
 proc print data=mj.bmi_date (obs=30) label;
-	var patient_id startdate date gap num_value;
-	label num_value = "BMI";
+	var patient_id startdate date num_value gap;
+	label num_value = "BMI"
+	gap = "Date gap";
 	title "mj.bmi_date";
 run;
 
 
+* 7. make time series table;
 
+/**************************************************
+* new dataset: mj.bmi_time_series
+* original dataset: mj.bmi_date
+* description: time series table
+**************************************************/
 
+data mj.bmi_time_series;
+	set mj.bmi_date;
+	array months[37] m0-m36;    /* Define an array for the m0 to m36 variables */
+	do i = 1 to 37;             /* Initialize all elements of the months array to missing */
+        	months[i] = .;
+   	end;
+	if gap >= 0 then do;        /* Determine which month variable to assign num_value to based on gap */
+		/* Calculate the index for the months array */	
+	idx = floor(gap / 30); /* Floor function ensures integer division */
+		/* Assign num_value to the appropriate variable, if within range */
+        if idx <= 36 then months[idx+1] = num_value; /* Arrays are 1-based in SAS */
+   	end;
+	drop i idx; /* Clean up the temporary variables */
+run;
 
-
-
-
+proc print data=mj.bmi_time_series (obs=30);
+	title "mj.bmi_time_series";
+run;
 
 
 
