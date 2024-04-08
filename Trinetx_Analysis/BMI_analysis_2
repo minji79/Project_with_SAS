@@ -16,12 +16,12 @@ proc print data=mj.vitals_signs_5p (obs=30);
 run;
 
 /**************************************************
-* new dataset: mj.bmi
-* original dataset: mj.vitals_signs_5p
+* new table: mj.bmi
+* original table: mj.vitals_signs_5p
 * description: only bmi info sorted by patients.id
 **************************************************/
 
-* 1. make a table with only BMI information;
+* 1. make a table with only BMI information sorted by patients.id;
 
 proc sort data=mj.vitals_signs_5p 
 		out=mj.bmi;
@@ -45,8 +45,8 @@ run;
 * 3. add variable named 'startdate' to indicate 'minimum date of BMI measurement';
 
 /**************************************************
-* new dataset: mj.bmi_startdate
-* original dataset: mj.bmi
+* new table: mj.bmi_startdate
+* original table: mj.bmi
 * description: indicate the min(date) as startdate
 **************************************************/
 
@@ -63,8 +63,8 @@ run;
 * 4. do mapping startdate with 'mj.bmi' table by patient.id;
 
 /**************************************************
-* new dataset: mj.bmi_date
-* original dataset: mj.bmi + mj.bmi_startdate
+* new table: mj.bmi_date
+* original table: mj.bmi + mj.bmi_startdate
 * description: left join mj.bmi & mj.bmi_startdate
 **************************************************/
 
@@ -127,8 +127,8 @@ run;
 * 7. make time series table;
 
 /**************************************************
-* new dataset: mj.bmi_time_series
-* original dataset: mj.bmi_date
+* new table: mj.bmi_time_series
+* original table: mj.bmi_date
 * description: time series table
 **************************************************/
 
@@ -147,9 +147,14 @@ data mj.bmi_time_series;
 	drop i idx; /* Clean up the temporary variables */
 run;
 
-proc print data=mj.bmi_time_series (obs=30);
+proc print data=mj.bmi_time_series (obs=30) label;
+  var patient_id startdate date num_value gap m0-m36;
+  label num_value = "BMI [kg/m2]"
+	gap = "Date gap";
 	title "mj.bmi_time_series";
 run;
+
+
 
 
 /****************************************************************************
