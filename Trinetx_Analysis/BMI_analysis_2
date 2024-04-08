@@ -152,23 +152,24 @@ proc print data=mj.bmi_time_series (obs=30);
 run;
 
 
-
-
-
-
-************************************************************************************************************************************************************************************************************************************
-
 /****************************************************************************
-| Program name : BMI time 
-| Date (update):
-| Project name :
-| Purpose      : Create new BMI files from vitals and lap
+| Program name : BMI - compare with the calculation from weight and height 
+| Date (update): 
+| Project name : 
+| Purpose      : 
+|                 LOINC: 29463-7 : Body weight [lb_av] 
+|                 LOINC: 8302-2 : Height [in_us] 
 ****************************************************************************/
 
 * Step 1. compare BMI info with the calculation from weight and height;
 * using Vitals files; 
 
-proc means data=
+proc means data = 
+
+
+
+
+
 
 * Step 3. all people form vitals with 39156-5 and  all people from lab with 89270-3 and make them in one table;
 
