@@ -6,7 +6,7 @@
 | Purpose      : 
 ****************************************************************************/
 
-* 0. original dataset exploring;
+* 0. explore original dataset;
 
 proc print data=tx5p.medication_ingredient (obs=40);
     title "tx5p.medication_ingredient";
@@ -100,11 +100,11 @@ proc sql;
 quit;
 
 
-* 2. select "all" glp1_users and make the dataset;
+* 2. select "all" glp1_users;
 
 /**************************************************
-* new dataset: mj.glp1_user_all
-* original dataset: tx5p.medication_ingredient
+* new table: mj.glp1_user_all
+* original table: tx5p.medication_ingredient
 * description: select "all" glp1_users from tx5p.medication_ingredient
 **************************************************/
 
@@ -163,9 +163,9 @@ run;
 * 4. add variable named 'Initiation_date' to indicate 'GLP1 initiation date by type of GLP1';
 
 /**************************************************
-* new dataset: mj.glp1_user_all_initiation_date
-* original dataset: mj.glp1_user_all
-* description: 
+* new table: mj.glp1_user_all_initiation_date
+* original table: mj.glp1_user_all
+* description: add variable named 'Initiation_date' to indicate 'GLP1 initiation date by type of GLP1'
 **************************************************/
 
 proc sql;
@@ -182,8 +182,8 @@ run;
 * 5. do mapping Initiation_date with 'mj.glp1_user_all' table by patient.id;
 
 /**************************************************
-* new dataset: mj.glp1_user_all_date
-* original dataset: mj.glp1_user_all + mj.glp1_user_all_initiation_date
+* new table: mj.glp1_user_all_date
+* original table: mj.glp1_user_all + mj.glp1_user_all_initiation_date
 * description: left join mj.glp1_user_all & mj.glp1_user_all_initiation_date
 **************************************************/
 
@@ -225,7 +225,7 @@ proc print data = mj.glp1_user_all_date (obs = 30) label;
 run;
 
 
-* 7. calculate the gap between Initiation_date and ㅇate;
+* 7. calculate the gap between Initiation_date and date;
 
 data mj.glp1_user_all_date;
 	set mj.glp1_user_all_date;
@@ -262,7 +262,7 @@ data mj.glp1_user_all_time_series;
 run;
 
 proc print data = mj.glp1_user_all_time_series (obs = 30) label;
-  var patient_id Initiation_date start_date Molecule strength gap m0-m36;
+  var patient_id Initiation_date start_date unique_id Molecule strength gap m0-m36;
   label start_date = "Date"
   gap = "Date gap";
   title "mj.glp1_user_all_time_series";
