@@ -323,13 +323,35 @@ proc print data=mj.glp1_user_all_final_date (obs=30);
 	title "mj.glp1_user_all_final_date";
 run;
 
-* 2. (update the "mj.glp1_user_all_date" data set) do mapping final_date with 'mj.glp1_user_all_date' table by patient.id;
+* 2. format date of the "final_date" variable;
+
+data mj.glp1_user_all_final_date;
+	set mj.glp1_user_all_final_date;
+	final_date_num = input(final_date, yymmdd8.);
+	format final_date_num yymmdd10.;
+	drop final_date;
+    rename final_date_num=final_date;
+run;
+
+proc print data=mj.glp1_user_all_final_date (obs=30);
+	title "mj.glp1_user_all_final_date";
+run;
+
+proc contents data = mj.glp1_user_all_final_date;
+	title "mj.glp1_user_all_final_date";
+run;
+
+* 3. (update the "mj.glp1_user_all_date" data set) do mapping final_date with 'mj.glp1_user_all_date' table by patient.id;
 
 /**************************************************
 * new table: mj.glp1_user_all_date
 * original table: mj.glp1_user_all_date + mj.glp1_user_all_final_date
 * description: left join mj.glp1_user_all_date & mj.glp1_user_all_final_date
 **************************************************/
+
+data mj.glp1_user_all_date;
+    set mj.glp1_user_all_date (drop = final_date total_exposure_period);
+run;
 
 proc sql;
   create table mj.glp1_user_all_date as
@@ -349,33 +371,19 @@ proc print data=mj.glp1_user_all_date (obs=40) label;
 	title "mj.glp1_user_all_date (updated with the final date)";
 run;
 
-* 3. format date of the "final_date" variable;
+
+* 4. add variable named 'exposure_time' to indicate 'the total exposure time to glp1 by patient';
 
 data mj.glp1_user_all_date;
 	set mj.glp1_user_all_date;
-	final_date_num = input(final_date, yymmdd8.);
-	format final_date_num yymmdd10.;
-	drop final_date;
-    rename final_date_num=final_date;
-run;
-
-proc contents data = mj.glp1_user_all_date;
-	title "mj.glp1_user_all_date (updated with the final_date)";
-run;
-
-* 4. add variable named 'total_exposure_period' to indicate 'the total exposure time to glp1 by patient';
-
-data mj.glp1_user_all_date;
-	set mj.glp1_user_all_date;
-	total_exposure_period = final_date - start_date;
+	exposure_time = final_date - Initiation_date;
 run;
 
 proc print data=mj.glp1_user_all_date (obs=40);
 	title "mj.glp1_user_all_date (updated with the total_exposure_period";
 run;
 
-proc contents mj.glp1_user_all_date;
-run;
+* 5. to explore the distribution of exposure time by patient, keep only distint oberservation by patient;
 
 
 
