@@ -268,6 +268,128 @@ proc print data = mj.glp1_user_all_time_series (obs = 30) label;
   title "mj.glp1_user_all_time_series";
 run;
 
+/*****************************************************************************************************************************************************/
+* how to defind the discontinuation;
+
+/**** Method 1 | indicator variable ****/
+* 1. make indicator variable of the discontinuation;
+
+data mj.glp1_user_all_time_series;
+	set mj.glp1_user_all_time_series;
+ 	if gap > 90 then disc = 1;
+  	else disc = 0;
+proc print data=mj.glp1_user_all_time_series(obs=40);
+	var patient_id Initiation_date start_date gap m0 disc;
+ 	title "discontinuation of glp1";
+run;
+
+* 2. To fo exploratory analysis of date-gap -> excluded the observation with gap=0 ;
+
+/**************************************************
+* new dataset: mj.glp1_user_all_time_series_disc
+* original dataset: mj.glp1_user_all_time_series
+* description: exclude the observation with gap=0 to analyze discontinuation 
+**************************************************/
+
+proc freq data=mj.glp1_user_all_time_series;
+	where gap <> 0;
+ 	table disc;
+	title "discontinuation distribution";
+run;
+
+proc means data=mj.glp1_user_all_time_series n nmiss mean std maxdec=1;
+	var gap;
+	title "mj.glp1_users_gap_stats";
+run;
+
+
+/**** Method 2 | calculate the "total exposure period" from the initial dose to the last dose ****/
+
+* 1. make the "final_date" variable to indicate the date of the last dose of glp1;
+
+/**************************************************
+* new table: mj.glp1_user_all_final_date
+* original table: mj.glp1_user_all
+* description: add variable named 'total_exposure_period' to indicate the total exposure period from the initial dose to the last dose
+**************************************************/
+
+proc sql;
+	create table mj.glp1_user_all_final_date as
+ 	select patient_id, max(start_date) as final_date
+  	from mj.glp1_user_all
+   	group by patient_id;
+quit;
+proc print data=mj.glp1_user_all_final_date (obs=30);
+	title "mj.glp1_user_all_final_date";
+run;
+
+* 2. (update the "mj.glp1_user_all_date" data set) do mapping final_date with 'mj.glp1_user_all_date' table by patient.id;
+
+/**************************************************
+* new table: mj.glp1_user_all_date
+* original table: mj.glp1_user_all_date + mj.glp1_user_all_final_date
+* description: left join mj.glp1_user_all_date & mj.glp1_user_all_final_date
+**************************************************/
+
+proc sql;
+  create table mj.glp1_user_all_date as
+  select distinct a.*, b.final_date
+  from mj.glp1_user_all_date a left join mj.glp1_user_all_final_date b 
+  on a.patient_id=b.patient_id;
+quit;
+
+proc sort data = mj.glp1_user_all_date;
+  by patient_id start_date;
+proc print data = mj.glp1_user_all_date (obs=40);
+run;
+
+proc print data=mj.glp1_user_all_date (obs=40) label;
+	var patient_id Initiation_date start_date final_date;
+	label start_date = "Date";
+	title "mj.glp1_user_all_date (updated with the final date)";
+run;
+
+* 3. format date of the "final_date" variable;
+
+data mj.glp1_user_all_date;
+	set mj.glp1_user_all_date;
+	final_date_num = input(final_date, yymmdd8.);
+	format final_date_num yymmdd10.;
+	drop final_date;
+    rename final_date_num=final_date;
+run;
+
+proc contents data = mj.glp1_user_all_date;
+	title "mj.glp1_user_all_date (updated with the final_date)";
+run;
+
+* 4. add variable named 'total_exposure_period' to indicate 'the total exposure time to glp1 by patient';
+
+data mj.glp1_user_all_date;
+	set mj.glp1_user_all_date;
+	total_exposure_period = final_date - start_date;
+run;
+
+proc print data=mj.glp1_user_all_date (obs=40);
+	title "mj.glp1_user_all_date (updated with the total_exposure_period";
+run;
+
+proc contents mj.glp1_user_all_date;
+run;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
