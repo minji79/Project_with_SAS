@@ -383,7 +383,76 @@ proc print data=mj.glp1_user_all_date (obs=40);
 	title "mj.glp1_user_all_date (updated with the total_exposure_period";
 run;
 
-* 5. to explore the distribution of exposure time by patient, keep only distint oberservation by patient;
+* 5. keep only distint oberservation by patient;
+
+/**************************************************
+* new table: mj.glp1_user_all_exposure_time
+* original table: mj.glp1_user_all_date
+* description: keep only distinct exposure time by patient
+**************************************************/
+
+proc sql;
+  create table mj.glp1_user_all_exposure_time as
+  select distinct patient_id, exposure_time
+  from mj.glp1_user_all_date;
+quit;
+
+proc print data=mj.glp1_user_all_exposure_time (obs=40); 
+ title "mj.glp1_user_all_exposure_time";
+run;
+
+* 6. to explore the distribution of exposure time by patient, keep only distint oberservation by patient;
+
+* basic statistics;
+proc means data=mj.glp1_user_all_exposure_time;
+	var exposure_time;
+	title "exposure_time";
+run;
+
+* 6-1. histogram;
+* 1) plot histogram;
+
+ods graphics on;
+proc sgplot data=mj.glp1_user_all_exposure_time;
+	histogram exposure_time / binstart=50 binwidth=10;
+	density exposure_time / type=Normal;
+ 	density exposure_time / type=Kernal;
+	xaxis label="Exposure Time";
+    	yaxis label="Frequency";
+    	title "Histogram of Exposure Time with Density Plots";
+run;
+
+/**************************************************/**************************************************
+* 6-2. boxplot;
+* 1) Create Binned Variable - quantiles - for Precise Matching;
+
+/**************************************************
+* new table: mj.glp1_user_all_exposure_time_ranked
+* original table: mj.glp1_user_all_exposure_time
+* description: keep only distinct exposure time by patient
+**************************************************/
+
+proc rank data=mj.glp1_user_all_exposure_time out=mj.glp1_user_all_exposure_time_r groups=5;
+    var exposure_time;  /* Variable to be binned */
+    ranks quantile;     /* New variable to hold quantile information */
+run;
+
+proc freq data=mj.glp1_user_all_exposure_time_r;
+    tables quantile;
+run;
+
+proc means data=mj.glp1_user_all_exposure_time_ranked;
+    class quantile;
+    var exposure_time;
+run;
+
+* 3) check the value of quantiles;
+
+proc means data=mj.glp1_user_all_exposure_time q1 q3 median;
+    var exposure_time;
+    output out=quantile_exposure median=Q50 Q1=Q25 Q3=Q75;
+run;
+
 
 
 
