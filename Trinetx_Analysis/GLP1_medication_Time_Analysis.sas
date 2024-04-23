@@ -393,9 +393,9 @@ run;
 
 proc sql;
   create table mj.glp1_user_all_exposure_time as
-  select distinct patient_id, exposure_time
+  select distinct patient_id, exposure_time, final_date, Initiation_date
   from mj.glp1_user_all_date;
-quit;
+quit;                                       /* total 54277 observations */
 
 proc print data=mj.glp1_user_all_exposure_time (obs=40); 
  title "mj.glp1_user_all_exposure_time";
@@ -404,19 +404,54 @@ run;
 * 6. to explore the distribution of exposure time by patient, keep only distint oberservation by patient;
 
 * basic statistics;
-proc means data=mj.glp1_user_all_exposure_time;
+proc means data=mj.glp1_user_all_exposure_time n q1 median mean q3 std min max;
 	var exposure_time;
 	title "exposure_time";
+ 	output out=quantile_exposure median=Q50 Q1=Q25 Q3=Q75;
 run;
+
+* the number of value of 0;
+proc means data=mj.glp1_user_all_exposure_time n;
+	var exposure_time;
+ 	where exposure_time = 0;
+	title "exposure_time = 0";
+run;
+
+proc print data=mj.glp1_user_all_exposure_time (obs=30);
+	var patient_id Initiation_date final_date exposure_time;
+ 	where exposure_time = 0;
+	title "exposure_time = 0";
+run;
+
+*think about inclusion criteria;
+* 1) exposure_time > 365 (1 yr) ;
+proc means data=mj.glp1_user_all_exposure_time n;
+	var exposure_time;
+ 	where exposure_time > 365;
+	title "exposure_time > 365 - over 1yr";
+run;
+
+proc means data=mj.glp1_user_all_exposure_time n q1 median mean q3 std min max;
+	var exposure_time;
+	 where exposure_time > 365;
+	title "exposure_time";
+ 	output out=quantile_exposure median=Q50 Q1=Q25 Q3=Q75;
+run;
+
+
+* 2) exposure_time > 548 (1.5y) ;
+
+
+
 
 * 6-1. histogram;
 * 1) plot histogram;
 
 ods graphics on;
 proc sgplot data=mj.glp1_user_all_exposure_time;
-	histogram exposure_time / binstart=50 binwidth=10;
+	histogram exposure_time / binstart=50 binwidth=100;
 	density exposure_time / type=Normal;
- 	density exposure_time / type=Kernal;
+ 	density exposure_time / type=Kernel;
 	xaxis label="Exposure Time";
     	yaxis label="Frequency";
     	title "Histogram of Exposure Time with Density Plots";
@@ -446,12 +481,6 @@ proc means data=mj.glp1_user_all_exposure_time_ranked;
     var exposure_time;
 run;
 
-* 3) check the value of quantiles;
-
-proc means data=mj.glp1_user_all_exposure_time q1 q3 median;
-    var exposure_time;
-    output out=quantile_exposure median=Q50 Q1=Q25 Q3=Q75;
-run;
 
 
 
