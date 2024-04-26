@@ -4,10 +4,21 @@ ssh -X mkim@jhpce03.jhsph.edu
 cd /dcs07/trinetx/data/
 cd /users/mkim/
 
+* running SAS;
+
 srun --pty --x11 bash
      /* srun --pty --x11 --partition sas bash */
 module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
+
+* running R studio;
+srun --pty --x11 --mem=10G bash
+module load r
+module load rstudio
+
+jhpce-rstudio-server-R4.3.2
+
+exit
 
 /****************************************************************************
 | Program name : 
