@@ -478,6 +478,11 @@ proc sql;
     title "mj.study_pop_bmi_outcome_cleaned";
 quit;   /* 114 unique individuals */
 
+proc sql;
+    select count(*) as RowCount
+    from mj.study_pop_bmi_outcome_cleaned;
+    title "mj.study_pop_bmi_outcome_cleaned";
+quit;   /* 114 unique individuals */
 
 * 6. calculate outcome ;
 
@@ -502,9 +507,89 @@ proc print data=mj.study_pop_bmi_outcome_cleaned (obs =40);
 run;
 
 
+* 7. Define the event as regaining the original BMI ;
+
+/**************************************************
+* new table: mj.study_pop_bmi_outcome_cleaned
+* original table: mj.study_pop_bmi_outcome_cleaned
+* description: calculate outcome
+*                 ciriteria = 6m
+*                 bmi_change_6m = criteria for assessment
+**************************************************/
+
+data mj.study_pop_bmi_outcome_cleaned;
+    set mj.study_pop_bmi_outcome_cleaned;
+    if bmi_change_6m >= 0 then event_6m = 1;
+    else event_6m = 0;
+    if bmi_change_1yr >= 0 then event_1yr = 1;
+    else event_1yr = 0;
+    if bmi_change_2yr >= 0 then event_2yr = 1;
+    else event_2yr = 0;
+    if bmi_change_3yr >= 0 then event_3yr = 1;
+    else event_3yr = 0;
+    if bmi_change_4yr >= 0 then event_4yr = 1;
+    else event_4yr = 0;
+    if bmi_change_5yr >= 0 then event_5yr = 1;
+    else event_5yr = 0;
+run;    /* 114 obs */
+
+proc print data=mj.study_pop_bmi_outcome_cleaned (obs =40);
+  title "mj.study_pop_bmi_outcome_cleaned";
+run;
+
+
+* 8. link the demographic info to the 'mj.study_pop_bmi_outcome_cleaned';
+
+/**************************************************
+* new table: mj.study_pop_bmi_outcome_cleaned
+* original table: mj.study_pop_bmi_outcome_cleaned + tx5p.patient
+* description: link the demographic info to the 'mj.study_pop_bmi_outcome_cleaned'
+**************************************************/
+
+proc sql;
+  create table mj.study_pop_bmi_outcome_cleaned as
+  select distinct a.*, b.*
+  from mj.study_pop_bmi_outcome_cleaned a left join tx5p.patient b
+  on a.patient_id = b.patient_id;
+quit;  
+
+proc print data=mj.study_pop_bmi_outcome_cleaned (obs =20);
+  title "mj.study_pop_bmi_outcome_cleaned";
+run;
+
+* 9. indicate glp1 users after BS;
+
+/**************************************************
+* new table: mj.study_pop_bmi_outcome_cleaned
+* original table: mj.study_pop_bmi_outcome_cleaned
+* description: 
+*           group = 0 -> BS only
+*           group = 1 -> glp1 users after BS
+*           group = 2 -> glp1 users 'before' BS
+**************************************************/
+
+data mj.study_pop_bmi_outcome_cleaned;
+    set mj.study_pop_bmi_outcome_cleaned (drop=glp1_users_after_BS);
+    if BS_glp1_combi = 0 and temporality = 0 then group = 0;
+    else if BS_glp1_combi = 1 and temporality = 1 then group = 1;
+    else if BS_glp1_combi = 1 and temporality = 0 then group = 2;
+run;
+
+data mj.study_pop_bmi_outcome_cleaned;
+    set mj.study_pop_bmi_outcome_cleaned (drop=glp1_users_after_BS);
+    /* Initialize group to a default value to handle cases not covered by the conditions below */
+    group = .;
+    if BS_glp1_combi = 0 and temporality = 0 then group = 0;
+    else if BS_glp1_combi = 1 and temporality = 1 then group = 1;
+    else if BS_glp1_combi = 1 and temporality = 0 then group = 2;
+run;    /* 114 obs */
+
+proc print data=mj.study_pop_bmi_outcome_cleaned (obs =20);
+  title "mj.study_pop_bmi_outcome_cleaned";
+run;
 
 
 
 
-
+    
 
