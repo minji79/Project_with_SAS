@@ -557,7 +557,7 @@ proc print data=mj.study_pop_bmi_outcome_cleaned (obs =20);
   title "mj.study_pop_bmi_outcome_cleaned";
 run;
 
-* 9. indicate glp1 users after BS;
+* 9. indicate group and age;
 
 /**************************************************
 * new table: mj.study_pop_bmi_outcome_cleaned
@@ -567,6 +567,8 @@ run;
 *           group = 1 -> glp1 users after BS
 *           group = 2 -> glp1 users 'before' BS
 **************************************************/
+
+* 9-1. make group;
 
 data mj.study_pop_bmi_outcome_cleaned;
     set mj.study_pop_bmi_outcome_cleaned (drop=glp1_users_after_BS);
@@ -588,8 +590,13 @@ proc print data=mj.study_pop_bmi_outcome_cleaned (obs =20);
   title "mj.study_pop_bmi_outcome_cleaned";
 run;
 
+* 9-2. make age variable ; 
 
-
+data  mj.study_pop_bmi_outcome_cleaned;
+  set  mj.study_pop_bmi_outcome_cleaned;
+  year_of_birth_num = input(year_of_birth, 4.);
+  age = 2024 - year_of_birth_num;
+run;
 
     
 
