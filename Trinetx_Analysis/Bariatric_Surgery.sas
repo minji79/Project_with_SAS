@@ -58,7 +58,13 @@ proc print data = mj.bs_user_all (obs=30);
 run;
 
 
+* 3. check the temporaity of the exposure and outcome;
 
+* 3-1. convert the date from characther to numeric;
+
+data data bs_user_all;
+    
+run;
 
 
 
