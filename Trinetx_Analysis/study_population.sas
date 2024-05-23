@@ -183,6 +183,15 @@ proc print data=mj.glp1_bs_date_compare_uniq (obs=40);
   title "mj.glp1_bs_date_compare_uniq";
 run;
 
+proc freq data=mj.glp1_bs_date_compare_uniq;
+	table BS_glp1_combi;
+	title "mj.glp1_bs_date_compare_uniq";
+run;
+
+/* 
+BS_glp1_combi = 1 : 84
+BS_glp1_combi = 0 : 184
+*/
 
 * 4-3. calculate gap between glp1 initial date and the BS date;
 
@@ -224,10 +233,254 @@ proc print data=mj.glp1_bs_date_compare_uniq (obs=40);
   title "mj.glp1_bs_date_compare_uniq";
 run;
 
+proc freq data=mj.glp1_bs_date_compare_uniq;
+	table temporality;
+ 	where temporality = 1;
+ 	title "mj.glp1_bs_date_compare_uniq";
+run;
+
+/*
+temporality = 0 : 211 (incl. glp1 not users)
+temporality = 1 : 57
+temporality = 2 : 0
+
+gap >0 : 57
+gap <0 : 27
+
+*/
+
+proc means data=mj.glp1_bs_date_compare_uniq n nmiss mean max min ;
+	var temporality;
+ 	where gap >0;
+run;
+
+* 5. distribution of the temporality;
+
+* 5-1. glp1 after BS;
+proc means data=mj.glp1_bs_date_compare_uniq
+	n mean median min max std ;
+	var glp1_after_BS;
+	title "glp1_after_BS";
+run;
+
+proc sgplot data=mj.glp1_bs_date_compare_uniq;
+	histogram glp1_after_BS / binstart=1 binwidth=10 scale=count;
+	density glp1_after_BS / type=Normal;
+	title "glp1_after_BS";
+run;
 
 
-* 5. ;
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 30;
+	title "number of glp1 initications within 30 days after BS";
+run;
 
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 91.25;
+	title "number of glp1 initications within 3 months after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 182.5;
+	title "number of glp1 initications within 6 months after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365;
+	title "number of glp1 initications within 1 year after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*2;
+	title "number of glp1 initications within 2 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*3;
+	title "number of glp1 initications within 3 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*4;
+	title "number of glp1 initications within 4 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*5;
+	title "number of glp1 initications within 5 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*6;
+	title "number of glp1 initications within 6 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*7;
+	title "number of glp1 initications within 7 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*8;
+	title "number of glp1 initications within 8 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*9;
+	title "number of glp1 initications within 9 years after BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_after_BS;
+ 	where glp1_after_BS < 365*10;
+	title "number of glp1 initications within 10 years after BS";
+run;
+
+
+* 5-2. glp1 before BS;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n mean median min max std ;
+	var glp1_before_BS;
+	title "glp1_before_BS";
+run;
+
+proc sgplot data=mj.glp1_bs_date_compare_uniq;
+	histogram glp1_before_BS / binwidth=10 scale=count;
+	density glp1_before_BS / type=Normal;
+	title "glp1_before_BS";
+run;
+
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > -30;
+	title "number of glp1 initications within 30 days before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 91.25;
+	title "number of glp1 initications within 3 months before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 182.5;
+	title "number of glp1 initications within 6 months before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365;
+	title "number of glp1 initications within 1 year before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*2;
+	title "number of glp1 initications within 2 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*3;
+	title "number of glp1 initications within 3 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*4;
+	title "number of glp1 initications within 4 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*5;
+	title "number of glp1 initications within 5 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*6;
+	title "number of glp1 initications within 6 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*7;
+	title "number of glp1 initications within 7 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*8;
+	title "number of glp1 initications within 8 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*9;
+	title "number of glp1 initications within 9 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*10;
+	title "number of glp1 initications within 10 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*15;
+	title "number of glp1 initications within 15 years before BS";
+run;
+
+proc means data=mj.glp1_bs_date_compare_uniq
+	n ;
+	var glp1_before_BS;
+ 	where glp1_before_BS > - 365*20;
+	title "number of glp1 initications within 20 years before BS";
+run;
 
 
 
