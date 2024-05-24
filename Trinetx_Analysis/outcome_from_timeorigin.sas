@@ -19,11 +19,20 @@ proc print data=mj.bmi_date (obs=30);
   title "mj.bmi_date";
 run;
 
-* 1-1. left join join mj.bmi_date & mj.glp1_bs_date_compare_uniq ;
+* 1-1. left join mj.bmi_date & mj.glp1_bs_date_compare_uniq ;
+
+proc print data=mj.glp1_bs_date_compare_uniq (obs=40);
+  title "mj.glp1_bs_date_compare_uniq";
+run;
+
+proc print data=mj.bmi_date (obs=40);
+  title "mj.bmi_date";
+run;
+
 
 proc sql;
   create table mj.bmi_from_timeorigin as
-  select distinct a.*, b.last_BS_date, b.BS_glp1_combi, b.temporality
+  select distinct a.*, b.*
   from mj.bmi_date a left join mj.glp1_bs_date_compare_uniq b
   on a.patient_id = b.patient_id;
 quit;        /* 3014953 obs */
@@ -32,6 +41,12 @@ proc print data=mj.bmi_from_timeorigin (obs=30);
 run;
 
 * 1-2. remain with only study population - who took BS ;
+
+proc means data=mj.glp1_bs_date_compare_uniq n nmiss ;
+  var last_BS_date;
+  title "mj.glp1_bs_date_compare_uniq";
+run;   /* N = 268, Nmiss = 0 */
+
 
 data mj.bmi_from_timeorigin;
     set mj.bmi_from_timeorigin;
@@ -50,7 +65,7 @@ proc print data=mj.bmi_from_timeorigin (obs=30);
   title "mj.bmi_from_timeorigin";
 run;
 
-* 1-4. re-check to comfirm that only 136 patients among patient undertaking the BS have BMI values;
+* 1-4. re-check to confirm that only 136 patients among patient undertaking the BS have BMI values;
 
 proc print data=mj.glp1_bs_date_compare_uniq;
   where last_BS_date is missing;
@@ -76,7 +91,7 @@ run;
 * bmi_before_BS : the BMI value of the closest date from time origin (incl. 0)
 * bmi_after_1yr_BS : the BMI value of 
 * bmi_after_3yr_BS : the BMI value of 
-* description: 
+* description:  total 6065 obs / 134 distinct individuals
 **************************************************/
 
 * 3-1. proc sort by id and BMI measurement date;
@@ -109,6 +124,10 @@ proc sql;
     from mj.bmi_from_timeorigin;
     title "mj.bmi_from_timeorigin";
 quit;    /* 134 obs (2 individuals have onaly missing values) */
+
+proc print data=mj.bmi_from_timeorigin (obs=30);
+  title "mj.bmi_from_timeorigin";
+run;
 
 
 * 3-3. mj.bmi_before_BS ;
@@ -145,9 +164,45 @@ proc sql;
     title "mj.bmi_before_BS";
 quit;  /* 114 unique individuals */
 
-proc print data=mj.bmi_before_BS (obs=30);
+proc print data=mj.bmi_before_BS (obs=40);
   title "mj.bmi_before_BS";
 run;
+
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_before_BS_114
+* original table: mj.bmi_before_BS
+* description: remain only 114 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_before_BS_114;
+  set mj.bmi_before_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 114 obs */
+proc print data=mj.bmi_before_BS_114 (obs=30);
+  title "mj.bmi_before_BS_114";
+run;
+
+proc means data=mj.bmi_before_BS_114 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_before_BS_114";
+run;
+
+proc freq data=mj.bmi_before_BS_114;
+  table BS_glp1_combi;
+  title "mj.bmi_before_BS_114";
+run;
+
+/*
+among BS ppl who have BMI info before BS (n=114),
+  glp1_after_BS: 22
+  glp1_before_BS: 15
+  BS_glp1_combi = 0 (only BS): 77
+*/
+
 
 
 * 3-4. mj.bmi_after_6m_BS ;
@@ -188,6 +243,41 @@ proc print data=mj.bmi_after_6m_BS (obs=30);
   title "mj.bmi_after_6m_BS";
 run;
 
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_6m_BS_101
+* original table: mj.bmi_after_6m_BS
+* description: remain only 114 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_6m_BS_101;
+  set mj.bmi_after_6m_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 101 obs */
+proc print data=mj.bmi_after_6m_BS_101 (obs=30);
+  title "mj.bmi_after_6m_BS_101";
+run;
+
+proc means data=mj.bmi_after_6m_BS_101 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_6m_BS_101";
+run;
+
+proc freq data=mj.bmi_after_6m_BS_101;
+  table BS_glp1_combi;
+  title "mj.bmi_after_6m_BS_101";
+run;
+
+/*
+among BS ppl who have BMI info 6m after BS (n=101),
+  glp1_after_BS: 22
+  glp1_before_BS: 11
+  BS_glp1_combi = 0 (only BS): 68
+*/
+
 
 * 3-5. mj.bmi_after_1yr_BS ;
 
@@ -226,6 +316,41 @@ quit;   /* 86 unique individuals */
 proc print data=mj.bmi_after_1yr_BS (obs=30);
   title "mj.bmi_after_1yr_BS";
 run;
+
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_1yr_BS_86
+* original table: mj.bmi_after_1yr_BS
+* description: remain only 86 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_1yr_BS_86;
+  set mj.bmi_after_1yr_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 86 obs */
+proc print data=mj.bmi_after_1yr_BS_86 (obs=30);
+  title "mj.bmi_after_1yr_BS_86";
+run;
+
+proc means data=mj.bmi_after_1yr_BS_86 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_1yr_BS_86";
+run;
+
+proc freq data=mj.bmi_after_1yr_BS_86;
+  table BS_glp1_combi;
+  title "mj.bmi_after_1yr_BS_86";
+run;
+
+/*
+among BS ppl who have BMI info 1yr after BS (n=86),
+  glp1_after_BS: 19
+  glp1_before_BS: 7
+  BS_glp1_combi = 0 (only BS): 60
+*/
 
 
 * 3-6. mj.bmi_after_2yr_BS ;
@@ -266,6 +391,41 @@ proc print data=mj.bmi_after_2yr_BS (obs=30);
   title "mj.bmi_after_2yr_BS";
 run;
 
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_2yr_BS_79
+* original table: mj.bmi_after_2yr_BS
+* description: remain only 79 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_2yr_BS_79;
+  set mj.bmi_after_2yr_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 79 obs */
+proc print data=mj.bmi_after_2yr_BS_79 (obs=30);
+  title "mj.bmi_after_2yr_BS_79";
+run;
+
+proc means data=mj.bmi_after_2yr_BS_79 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_2yr_BS_79";
+run;
+
+proc freq data=mj.bmi_after_2yr_BS_79;
+  table BS_glp1_combi;
+  title "mj.bmi_after_2yr_BS_79";
+run;
+
+/*
+among BS ppl who have BMI info 2yr after BS (n=79),
+  glp1_after_BS: 18
+  glp1_before_BS: 5
+  BS_glp1_combi = 0 (only BS): 56
+*/
+
 
 * 3-7. mj.bmi_after_3yr_BS ;
 
@@ -304,6 +464,41 @@ quit;   /* 70 unique individuals */
 proc print data=mj.bmi_after_3yr_BS (obs=30);
   title "mj.bmi_after_3yr_BS";
 run;
+
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_3yr_BS_70
+* original table: mj.bmi_after_3yr_BS
+* description: remain only 70 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_3yr_BS_70;
+  set mj.bmi_after_3yr_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 70 obs */
+proc print data=mj.bmi_after_3yr_BS_70 (obs=30);
+  title "mj.bmi_after_3yr_BS_70";
+run;
+
+proc means data=mj.bmi_after_3yr_BS_70 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_3yr_BS_70";
+run;
+
+proc freq data=mj.bmi_after_3yr_BS_70;
+  table BS_glp1_combi;
+  title "mj.bmi_after_3yr_BS_70";
+run;
+
+/*
+among BS ppl who have BMI info 3yr after BS (n=70),
+  glp1_after_BS: 18
+  glp1_before_BS: 3
+  BS_glp1_combi = 0 (only BS): 49
+*/
 
 
 * 3-8. mj.bmi_after_4yr_BS ;
@@ -344,6 +539,43 @@ proc print data=mj.bmi_after_4yr_BS (obs=30);
   title "mj.bmi_after_4yr_BS";
 run;
 
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_4yr_BS_61
+* original table: mj.bmi_after_4yr_BS
+* description: remain only 70 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_4yr_BS_61;
+  set mj.bmi_after_4yr_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 61 obs */
+proc print data=mj.bmi_after_4yr_BS_61 (obs=30);
+  title "mj.bmi_after_4yr_BS_61";
+run;
+
+proc means data=mj.bmi_after_4yr_BS_61 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_4yr_BS_61";
+run;
+
+proc freq data=mj.bmi_after_4yr_BS_61;
+  table BS_glp1_combi;
+  title "mj.bmi_after_4yr_BS_61";
+run;
+
+/*
+among BS ppl who have BMI info 4yr after BS (n=61),
+  glp1_after_BS: 16
+  glp1_before_BS: 3
+  BS_glp1_combi = 0 (only BS): 42
+*/
+
+
+
 * 3-9. mj.bmi_after_5yr_BS ;
 
 /**************************************************
@@ -381,6 +613,42 @@ quit;   /* 48 unique individuals */
 proc print data=mj.bmi_after_5yr_BS (obs=30);
   title "mj.bmi_after_5yr_BS";
 run;
+
+/* use mean of duplicated bmi values by patients + get rid of duplication */
+
+/**************************************************
+* new table: mj.bmi_after_5yr_BS_48
+* original table: mj.bmi_after_5yr_BS
+* description: remain only 70 unique individuals
+*                 use mean of duplicated bmi values by patients
+**************************************************/
+
+data mj.bmi_after_5yr_BS_48;
+  set mj.bmi_after_5yr_BS;
+  by patient_id;
+  if first.patient_id;
+run;   /* 48 obs */
+proc print data=mj.bmi_after_5yr_BS_48 (obs=30);
+  title "mj.bmi_after_5yr_BS_48";
+run;
+
+proc means data=mj.bmi_after_5yr_BS_48 n nmiss mean median min max std ;
+  var glp1_after_BS glp1_before_BS;
+  title "mj.bmi_after_5yr_BS_48";
+run;
+
+proc freq data=mj.bmi_after_5yr_BS_48;
+  table BS_glp1_combi;
+  title "mj.bmi_after_5yr_BS_48";
+run;
+
+/*
+among BS ppl who have BMI info 5yr after BS (n=48),
+  glp1_after_BS: 12
+  glp1_before_BS: 2
+  BS_glp1_combi = 0 (only BS): 34
+*/
+
 
 
 * 4. merge bmi value with study population (268 indiv);
