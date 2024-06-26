@@ -1,0 +1,85 @@
+/**************************************************
+* lab_result
+**************************************************/
+
+/**************************************************
+* new dataset: m.lab_result
+* original dataset: tx.lab_result
+* description: copy file "tx.lab_result"
+**************************************************/
+
+* Step 1. copy the original dataset and convert 'result' values from character to numeric;
+
+proc contents data=tx.lab_result;
+run;
+
+data m.lab_result;    
+  set tx.lab_result;
+  lab_result_num_val = input(value, 8.);
+run;                                       * there were 319431133 obs;
+
+proc contents data=m.lab_result;
+run;
+
+/**************************************************
+* new dataset: m.lab_result_codelist
+* original dataset: m.lab_result
+* description: distinct value of the code_system variable
+**************************************************/
+
+* Step 2. check the type of code systems other than LOINC to have distinct value of the code_system variable;
+
+proc print data=tx.lab_result (obs=100);     * to check the original set;
+     title "tx.lab_result";
+run;
+
+proc sql;
+  create table m.lab_result_codelist as
+  select distinct code_system
+  from tx.lab_result; 
+quit;     
+
+proc print data=m.lab_result_codelist; 
+ title "[lab_result] distinct code list";
+run;
+
+* Step 3. list up the LOINC variables in vitals dataset;
+
+proc print data=m.lab_result (obs=20);
+  var code_system code units_of_measure;
+  * where code_system = "LOINC";
+run;
+
+proc sort data=m.lab_result out=m.lab_result_codelist
+    nodupkey;
+    * where code_system = "LOINC";
+    by descending code;               
+run;                            /* there were 13,776 obs */
+
+proc print data=m.lab_result_codelist (obs=80); 
+  var code_system code units_of_measure;
+  title "m.lab_result_codelist";
+run;
+
+proc contents data=m.lab_result_codelist;
+run;
+
+/**************************************************
+* new dataset: m.lab_result_standterm
+* original dataset: m.lab_result_codelist
+* description: map standardized_terminology to the codelist from lab_result
+**************************************************/
+
+* Step 4. map standardized_terminology;
+
+proc sql;
+  create table m.lab_result_standterm as
+  select distinct a.*, b.code, b.code_description, b.code_system 
+  from m.lab_result_codelist a left join test.standardized_terminology b 
+  on a.code_system=b.code_system and a.code=b.code;
+quit;
+
+proc print data=m.lab_result_standterm (obs=100); 
+ var code_system code code_description units_of_measure;
+ title "m.lab_result_standterm";
+run;
