@@ -35,7 +35,7 @@ libname analysis "/dcs07/trinetx/data/test_sas/5p";
 libname test "/dcs07/trinetx/data";   
 
 * to locate my own data analysis output under users in teamfolder;
-libname share "/dcs07/trinetx/data/Users/MJ";
+libname min "/dcs07/trinetx/data/Users/MJ";
 
 * to locate my own data analysis output in my own directory;
 libname m "/users/mkim/trinetx/100p";
