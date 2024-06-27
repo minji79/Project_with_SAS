@@ -32,7 +32,7 @@ libname tx5p "/dcs07/trinetx/data/SAS_datasets_5p";
 
 * to locate my own data analysis output in the original location in team folder;
 libname analysis "/dcs07/trinetx/data/test_sas/5p";
-libname test "/dcs07/trinetx/data/test_data";       * this lib was from lijuan to use standard terminology;
+libname test "/dcs07/trinetx/data";   
 
 * to locate my own data analysis output under users in teamfolder;
 libname share "/dcs07/trinetx/data/Users/MJ";
