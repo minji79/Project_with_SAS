@@ -13,7 +13,10 @@
 
 /* 
 
-issue: the 'standardized_terminology.csv' file is not available now
+issue: 
+
+the 'standardized_terminology.csv' file is not available now
+-> 100% data로 돌렸을 때, 기존 5%로는 74개 나오던 리스트가 76개 나옴. 그러나 standard term 매칭이 안된 상황
 4번 해야 함
 
 */
