@@ -19,7 +19,7 @@ module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
 
 
-* 2. use SAS
+* 2. use SAS;
 
 * My own directory for analysis in my own directory:     /users/mkim/trinetx/5p_test;
 * My own directory for sharing in team folder:           /dcs07/trinetx/data/Users/MJ;
