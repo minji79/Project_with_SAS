@@ -295,7 +295,7 @@ proc print data = min.glp1_user_all_time_series (obs = 30) label;
 run;
 
 
-* 8. link the medication_drug file to the 
+* 8. link the medication_drug file to the min.glp1_user_all (which is from medication_ingredient);
 
 /**************************************************
 * new dataset: min.glp1_user_all_merge
@@ -339,15 +339,15 @@ proc means data=min.glp1_user_all_merge N NMISS;
 run;
 
 
-* 9. select switching case;
+* 9. select the individuals switching medication within glp1
 
 /**************************************************
 * new dataset: min.glp1_user_swt
 * original dataset: min.glp1_user_all
-* description: select the individuals who swicting
+* description: select the individuals switching medication within glp1
 **************************************************/
 
-* 8.1. make the copy of glp1_users_all with only two variables;
+* 9.1. make the copy of glp1_users_all with only two variables;
 
 proc sql;
     create table min.glp1_user_swt as
@@ -372,7 +372,7 @@ proc print data=min.glp1_user_swt (obs=30);
 	title "min.glp1_user_swt";
 run;
 
-* 8.2. need to check with example of individuals ("#A#4", "#A#BC", "#A#GB");
+* 9.2. need to check with example of individuals ("#A#4", "#A#BC", "#A#GB");
 * check the order of the rows reflected real prescription date;
 
 proc print data=min.glp1_user_all (obs = 30); 
@@ -380,24 +380,67 @@ proc print data=min.glp1_user_all (obs = 30);
     title "example of '#A#4', '#A#BC', '#A#GB'";
 run;
 
-* 8.3. Remove the duplication - the total number of distinct glp1 users;
+
+* 9.3. Remove the duplication rows - but still have all of drug's code that indiv have;
 
 proc sort data=min.glp1_user_swt nodupkey out=min.glp1_user_swt;
     by _all_;
-run;
+proc print data=min.glp1_user_swt (obs=30); 
+	title "min.glp1_user_swt";
+run;                            /* remove the duplicated rows - but still have all of drug that indiv have */
+
+* 9.4. select the individuals switching medication within glp1 - with codes;
+
+/**************************************************
+* new dataset: min.glp1_user_swt_v01
+* original dataset: min.glp1_user_swt
+* description: select the individuals switching medication within glp1
+*		var: patient_id, code, drug_count
+**************************************************/
 
 proc sql;
-    create table min.glp1_user_swt as
-    select patient_id code;
+    create table min.glp1_user_swt_v01 as
+    select patient_id, code, count(distinct code) as drug_count
     from min.glp1_user_swt
     group by patient_id
-    having count(distinct code) > 1;
-quit;
+    having drug_count > 1;
+quit;              /* 533,896 obs : including duplications - not distinct  */
+
+proc print data=min.glp1_user_swt_v01 (obs=30); 
+	title "min.glp1_user_swt_v01";
+run;   
+
+
+* 9.5. select the "distinct" individuals switching medication within glp1 - without codes;
+
+/**************************************************
+* new dataset: min.glp1_user_swt_v02
+* original dataset: min.glp1_user_swt_v01
+* description: select the individuals switching medication within glp1
+*		count "distinct" number of switching individuals
+*		discriptive analysis of the number of switching
+*		var: patient_id, drug_count
+**************************************************/
+
+data min.glp1_user_swt_v02 (drop = code);
+	set min.glp1_user_swt_v01;
+proc print data=min.glp1_user_swt_v02 (obs = 30);
+	title "min.glp1_user_swt_v02";
+run;
+
+proc sort data=min.glp1_user_swt_v02 nodupkey out=min.glp1_user_swt_v02;
+    by _all_;
+proc print data=min.glp1_user_swt_v02 (obs=30); 
+	title "min.glp1_user_swt_v02";
+run;                                   /* 239,328 distinct individuals */ 
+
+proc contents data=min.glp1_user_swt_v02;
+	title "min.glp1_user_swt_v02";
+run; 
 
 
 /*
-the total of ** individuals 
-
+the total of 239,328 individuals switched their glp1 to another type of glp1
 
 */
 
