@@ -6,7 +6,7 @@
 | Task Purpose : 
 |      1. select all Bariatric Surgery(BS) users from 100% data (N = 99,350)
 |      2. BS users (initial use date) between 2016 - 2020    (N = 45,761)
-| Main dataset : (1) procedure (2) Medication_ingredient, (3) Medication_drug
+| Main dataset : (1) procedure
 ************************************************************************************/
 
 
