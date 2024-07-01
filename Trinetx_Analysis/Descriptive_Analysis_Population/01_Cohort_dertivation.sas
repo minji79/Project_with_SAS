@@ -1,7 +1,7 @@
 
 /************************************************************************************
 | Project name : Thesis - BS and GLP1
-| Program name : 01_Cohort_dertication
+| Program name : 01_Cohort_dertivation
 | Date (update): June 2024
 | Task Purpose : 
 |      1. select all Bariatric Surgery(BS) users from 100% data (N = 99,350)
