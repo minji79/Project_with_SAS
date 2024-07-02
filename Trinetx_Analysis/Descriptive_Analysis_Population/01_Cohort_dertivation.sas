@@ -7,7 +7,9 @@
 |      1. select all Bariatric Surgery(BS) users from 100% data (N = 99,350)
 |      2. BS users (initial use date) between 2016 - 2020    (N = 45,761)
 |      3. Merge "BS users 2016 - 2020" + demographic data (N = 45,761)
-|      4. select Age >= 18 | study population (N = 44,959)
+|      4. select Age >= 18 (N = 44,959)
+|      5. exclude individuals without sex information (N = 00)
+
 | Main dataset : (1) procedure, (2) tx.patient, (3) tx.patient_cohort & tx.genomic (but not merged)
 ************************************************************************************/
 
@@ -469,8 +471,50 @@ data min.bs_user_all_v05;
   if age_at_bs >=18;
 run;      /* 44959 obs */
 
+proc print data=min.bs_user_all_v05 (obs=30);
+	title "in.bs_user_all_v05";
+run;
 
 
+/************************************************************************************
+	STEP 5. Exclude individuals without sex       N = 43,858
+************************************************************************************/
+
+/**************************************************
+* new table: min.bs_user_all_v06
+* original table: min.bs_user_all_v05
+* description: Exclude individuals without sex 
+**************************************************/
+proc freq data = min.bs_user_all_v05;
+	table sex;
+run;                   /* nmiss in(sex) = 1101 */
+
+data min.bs_user_all_v06;	
+	set min.bs_user_all_v05;
+	if not missing (sex);
+run;                   /* 43858 obs */
+
+
+/************************************************************************************
+	STEP 6. Exclude individuals outside the US       N = 42,535
+************************************************************************************/
+
+/**************************************************
+* new table: min.bs_user_all_v07
+* original table: min.bs_user_all_v06
+* description: Exclude individuals without sex 
+**************************************************/
+
+* postal_code: Diamond network : patient_regional_location;
+
+proc freq data = min.bs_user_all_v06;
+	table patient_regional_location;
+run;               /* Ex-US = 71, Unknown = 1252 -> total = 1323 */ 
+
+data min.bs_user_all_v07;	
+	set min.bs_user_all_v06;
+	if patient_regional_location in('Midwest', 'Northeast', 'South', 'West');
+run;        /* 42535 obs */
 
 
 
