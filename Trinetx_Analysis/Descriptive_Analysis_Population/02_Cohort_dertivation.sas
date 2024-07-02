@@ -4,12 +4,13 @@
 | Program name : 02_Cohort_dertivation
 | Date (update): June 2024
 | Task Purpose : 
-|      1. glp1 users 
+|      1. All glp1 users (N = 00)
 |      2. select Age >= 18 (N = 44,959) | study population
 |      3. glp1 users 
 
 | Main dataset : (1) min.bs_user_all_v05, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
 ************************************************************************************/
+
 /****************************************************************************
 | Project name : Thesis - BS and GLP1
 | Date (update): June 2024
@@ -30,10 +31,10 @@ issue:
 */
 
 /************************************************************************************
-	STEP 1. Select       N = **
+	STEP 1. All Glp1 users (regardless of BS)      N = **
 ************************************************************************************/
 
-* 0. explore original dataset;
+* 0.0. explore original dataset;
 
 proc print data=tx.medication_ingredient (obs=40);
     title "tx.medication_ingredient";
@@ -61,7 +62,7 @@ run;
 * description: listup distinct value of the code_system variable
 **************************************************/
 
-* 0. check code_system to have distinct value of the code_system variable;
+* 1.0. check code_system to have distinct value of the code_system variable;
 
 proc sql;
   create table m.medication_ing_codelist as
@@ -74,58 +75,55 @@ proc sql;
   create table m.medication_drug_codelist as
   select distinct code_system
   from tx.medication_drug;
-quit;                           /* 2 obs - only RxNorm */
+quit;                           /* 2 obs - NCD and RxNorm */
 proc print data=m.medication_drug_codelist; run;
 
-/*
-
-code system: 
-RxNorm
-NCD
-
-*/
+	/*
+	medication_ingredient | code system | RxNorm
+	medication_drug | code system | RxNorm & NCD
+	*/
 
 
-* 1. explore dataset to select glp1_users;
+* 1.1. explore dataset to select glp1_users;
 
 /*
-only for obesity:
-Semaglutide [1991302]
-Liraglutide [475968]
-Tirzepatide [2601723]
+glp1 only for obesity:
+	Semaglutide [1991302]
+	Liraglutide [475968]
+	Tirzepatide [2601723]
 */
 
-* 1-1. Semaglutide [1991302];
+* 1) Semaglutide [1991302];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "1991302";
     title "tx.medication_ingredient_Semaglutide";
 run;
 
-* 1-2. Dulaglutide [1551291];
+* 2) Dulaglutide [1551291];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "1551291";
     title "tx.medication_ingredient_Dulaglutide";
 run;
 
-* 1-3. Liraglutide [475968];
+* 3) Liraglutide [475968];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "475968";
     title "tx.medication_ingredient_Liraglutide";
 run;
 
-* 1-4. Exenatide [60548];
+* 4) Exenatide [60548];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "60548";
     title "tx.medication_ingredient_Exenatide";
 run;
 
-* 1-5. Lixisenatide [1440051];
+* 5) Lixisenatide [1440051];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "1440051";
     title "tx.medication_ingredient_Lixisenatide";
 run;
 
-* 1-6. Tirzepatide [2601723];
+* 6) Tirzepatide [2601723];
 proc print data=tx.medication_ingredient (obs=30);
     where code = "2601723";
     title "tx.medication_ingredient_Tirzepatide";
@@ -273,6 +271,10 @@ proc print data = min.glp1_user_all_date (obs = 30) label;
 	title "min.glp1_user_all_date";
 run;
 
+
+
+
+/*************** additional analysis ************************/
 
 * 7. make time series table;
 
