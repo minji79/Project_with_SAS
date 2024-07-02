@@ -6,7 +6,9 @@
 | Task Purpose : 
 |      1. select all Bariatric Surgery(BS) users from 100% data (N = 99,350)
 |      2. BS users (initial use date) between 2016 - 2020    (N = 45,761)
-| Main dataset : (1) procedure
+|      3. Merge "BS users 2016 - 2020" + demographic data (N = 45,761)
+|      4. select Age >= 18 | study population (N = 44,959)
+| Main dataset : (1) procedure, (2) tx.patient, (3) tx.patient_cohort & tx.genomic (but not merged)
 ************************************************************************************/
 
 
@@ -374,6 +376,98 @@ proc freq data=min.bs_user_all_v02;
 run;
 
 
+
+/************************************************************************************
+	STEP 3. Merge "BS users 2016 - 2020" + "demographic data"       N = 45,761
+************************************************************************************/
+
+* 3.0. see the demograph data;
+
+proc print data=tx.patient (obs=40);
+    title "tx.patient";
+run;
+proc contents data=tx.patient;
+    title "tx.patient";
+run;
+
+
+proc print data=tx.patient_cohort (obs=40);
+    title "tx.patient_cohort";
+run;
+proc contents data=tx.patient_cohort;
+    title "tx.patient_cohort";
+run;
+
+
+proc print data=tx.genomic (obs=40);
+    title "tx.genomic";
+run;
+proc contents data=tx.genomic;
+    title "tx.genomic";
+run;
+
+* 3.1. Merge "BS users 2016 - 2020" + "demographic data";
+
+/**************************************************
+* new table: min.bs_user_all_v03
+* original table: min.bs_user_all_v02 + tx.patient
+* description: Merge "BS users 2016 - 2020" + "demographic data" 
+**************************************************/     
+
+proc sql;
+  create table min.bs_user_all_v03 as
+  select a.*, b.*
+  from min.bs_user_all_v02 as a
+  join tx.patient as b
+  on a.patient_id = b.patient_id;
+quit;
+
+proc print data=min.bs_user_all_v03 (obs=40); 
+  title "min.bs_user_all_v03"; 
+run;
+  
+
+/************************************************************************************
+	STEP 4. Age >= 18       N = 44,959
+************************************************************************************/
+
+/**************************************************
+* new table: min.bs_user_all_v05
+*             min.bs_user_all_v04
+* original table: min.bs_user_all_v03
+* description: "BS users 2016 - 2020" + age >= 18 
+**************************************************/    
+
+* 4.1. format date;
+
+data min.bs_user_all_v04;
+    set min.bs_user_all_v03;
+	  year_of_birth_num = input(year_of_birth, $6.);
+    format year_of_birth_num 6.;
+    drop year_of_birth;
+  rename year_of_birth_num = year_of_birth;
+run;
+proc contents data=min.bs_user_all_v04;
+	title "min.bs_user_all_v04";
+run;
+
+* 4.2. to convert 'year_of_birth' to 'age', change the format of the 'year_of_birth';
+
+data min.bs_user_all_v04;
+  set min.bs_user_all_v04;
+  age_at_bs = year(bs_date) - year_of_birth;
+run;
+proc print data=min.bs_user_all_v04 (obs = 30);
+	title "min.bs_user_all_v04";
+run;
+
+
+* 4.3. select individuals aged more than 18 years;
+
+data min.bs_user_all_v05;
+  set min.bs_user_all_v04;
+  if age_at_bs >=18;
+run;      /* 44959 obs */
 
 
 
