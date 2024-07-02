@@ -1,11 +1,15 @@
 
-/****************************************************************************
+/************************************************************************************
 | Project name : Thesis - BS and GLP1
+| Program name : 02_Cohort_dertivation
 | Date (update): June 2024
-| Task Purpose : listup code for key outcome measurements with 100% data set
-| Main dataset : (1) Medication_ingredient, (2) Medication_drug
-****************************************************************************/
+| Task Purpose : 
+|      1. glp1 users 
+|      2. select Age >= 18 (N = 44,959) | study population
+|      3. glp1 users 
 
+| Main dataset : (1) min.bs_user_all_v05, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
+************************************************************************************/
 /****************************************************************************
 | Project name : Thesis - BS and GLP1
 | Date (update): June 2024
@@ -24,6 +28,10 @@ issue:
 2. cannot check the missing value to check that the two variables were added properly
 
 */
+
+/************************************************************************************
+	STEP 1. Select       N = **
+************************************************************************************/
 
 * 0. explore original dataset;
 
