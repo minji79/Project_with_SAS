@@ -12,10 +12,16 @@
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
 ************************************************************************************/
 
-/* 
-	1. encounter # 가 뭐지?
-	2. cannot check the missing value to check that the two variables were added properly
-*/
+
+/**************************************************
+              Variable Definition
+* table: min.bs_glp1_user_v03
+* temporality
+*       0  : no glp1_user   (n = 33125)
+*       1  : take glp1 before BS   (n = 4151)
+*       2  : take glp1 after BS    (n = 5259)
+**************************************************/
+
 
 /************************************************************************************
 	STEP 1. All Glp1 users (regardless of BS history, age, index date)      N = 1,088,256
@@ -296,6 +302,7 @@ quit;           /* 9,410 obs = glp1 users among BS users */
 
 proc print data=min.bs_glp1_user_v00 (obs=30);
 	title "min.bs_glp1_user_v00";
+	where glp1_user = 1;
 run;
 
 proc contents data=min.bs_glp1_user_v00;
@@ -304,13 +311,14 @@ run;
 
 
 /************************************************************************************
-	STEP 3. Indicate the timing of glp1 use compared with the bs_date  
+	STEP 3. Indicate the timing order of glp1 use compared with the bs_date  
 ************************************************************************************/
 
 * 3.1. calculate gap between glp1_initiation_date and the bs_date;
 
 /**************************************************
-* new table: min.bs_glp1_user_v01
+* new table: min.bs_glp1_user_v02
+*            min.bs_glp1_user_v01
 * original table: min.bs_glp1_user_v00
 * description: calculate gap between glp1_initiation_date and the bs_date;
 **************************************************/
@@ -318,7 +326,7 @@ run;
 /**************************************************
               Variable Definition
 * table: min.bs_glp1_user_v01
-* glp1_user 
+* temporality
 *       0  : no glp1_user
 *       1  : take glp1 before BS
 *       2  : take glp1 after BS 
@@ -327,33 +335,102 @@ run;
 data min.bs_glp1_user_v01;
 	set min.bs_glp1_user_v00;
 	gap_glp1_bs = glp1_initiation_date - bs_date;
- 
-  if gap < 0 then do;
-      glp1_user = 1;
-      glp1_before_BS = gap_glp1_bs;
-    end;
-  else if gap > 0 then do;
-      glp1_user = 2;
-      glp1_after_BS = gap_glp1_bs;
-    end;
-
-run;       /* 177022 obs */
+run;      /* 177022 obs */
 
 proc print data=min.bs_glp1_user_v01 (obs = 30);
 	var patient_id glp1_user bs_date glp1_initiation_date glp1_date gap_glp1_bs;
- 	title "min.bs_glp1_user_v01";
+ 	where glp1_user = 0;
+  	title "min.bs_glp1_user_v01";
 run;
 
-proc freq data=min.bs_glp1_user_v01;
-	table glp1_user;
- 	where glp1_user = 1;
+data min.bs_glp1_user_v02;
+	set min.bs_glp1_user_v01;
+ 
+    if glp1_user = 0 then do;
+      temporality = 0;
+    end;
+    else if gap_glp1_bs < 0 then do;
+      temporality = 1;
+      glp1_before_BS = gap_glp1_bs;
+    end;
+    else if gap_glp1_bs >= 0 then do;
+      temporality = 2;
+      glp1_after_BS = gap_glp1_bs;
+    end;
+run;       
+
+
+* 3.2. make a variable to indicate glp1_expose time (regardless of the discontinuation) ;
+*      + Remove duplications (only remain 'the last glp1_date' & removing other glp1_date information;
+
+/**************************************************
+* new table: min.bs_glp1_user_v03
+* original table: min.bs_glp1_user_v02
+* description: make a variable to indicate glp1_expose time (regardless of the discontinuation)
+* 			 + Remove duplications (only remain 'the last glp1_date' & removing other glp1_date information
+**************************************************/
+
+/* to see the duplication case : patient_id = 5A#p */
+proc print data=min.bs_glp1_user_v02 (obs=30);
+  	title "min.bs_glp1_user_v02_5A#p";
+   	where patient_id = '5A#p';
 run;
 
-proc means data=min.bs_glp1_user_v01 n nmiss mean max min ;
-	var glp1_user;
- 	where gap_glp1_bs >0;
+proc sort data = min.bs_glp1_user_v02;
+	by patient_id glp1_date;
 run;
 
+data min.bs_glp1_user_v03;
+	set min.bs_glp1_user_v02;
+ 	by patient_id;
+  	glp1_expose_period = first(glp1_date) - last(glp1_date);
+run;
+
+data min.bs_glp1_user_v03;
+    set min.bs_glp1_user_v02;
+    by patient_id;
+
+    retain first_glp1_date last_glp1_date;
+    
+    if first.patient_id then do;
+        first_glp1_date = glp1_date;
+        last_glp1_date = glp1_date;
+    end;
+    else last_glp1_date = glp1_date;
+
+    if last.patient_id then do;
+        glp1_expose_period = last_glp1_date - first_glp1_date;
+        output;
+    end;
+    drop first_glp1_date last_glp1_date;
+run;       /* 42535 obs */
+
+
+proc print data=min.bs_glp1_user_v03 (obs=20);
+  	title "min.bs_glp1_user_v03";
+   	where glp1_user = 1 & patient_id = '5A#p';
+run;
+
+proc sql;
+	select count(distinct patient_id) as distinct_patient_count
+ 	from min.bs_glp1_user_v03;
+quit;      /* 42535 obs */
+
+
+* 3.3. frequency distribution of glp1_user;
+
+proc freq data=min.bs_glp1_user_v03;
+	table temporality;
+run;
+
+/**************************************************
+              Variable Definition
+* table: min.bs_glp1_user_v03
+* temporality
+*       0  : no glp1_user   (n = 33125)
+*       1  : take glp1 before BS   (n = 4151)
+*       2  : take glp1 after BS    (n = 5259)
+**************************************************/
 
 
 
