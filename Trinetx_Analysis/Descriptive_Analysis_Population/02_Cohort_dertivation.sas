@@ -381,12 +381,6 @@ proc sort data = min.bs_glp1_user_v02;
 run;
 
 data min.bs_glp1_user_v03;
-	set min.bs_glp1_user_v02;
- 	by patient_id;
-  	glp1_expose_period = first(glp1_date) - last(glp1_date);
-run;
-
-data min.bs_glp1_user_v03;
     set min.bs_glp1_user_v02;
     by patient_id;
 
