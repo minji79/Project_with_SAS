@@ -9,8 +9,8 @@
 |      3. Merge "BS users 2016 - 2020" + demographic data (N = 45,761)
 |      4. select Age >= 18 (N = 44,959)
 |      5. exclude individuals without sex information (N = 00)
-
 | Main dataset : (1) procedure, (2) tx.patient, (3) tx.patient_cohort & tx.genomic (but not merged)
+| Final dataset : min.bs_user_all_v07 (with distinct indiv)
 ************************************************************************************/
 
 
