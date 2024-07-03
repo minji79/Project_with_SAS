@@ -1,7 +1,7 @@
 
 /************************************************************************************
 | Project name : Thesis - BS and GLP1
-| Program name : 03_glp1_use_time_analysis
+| Program name : 03_Glp1_use_time_analysis
 | Date (update): June 2024
 | Task Purpose : 
 |      1. Analysis of glp1 initiation point compared to bs_date across types of temporality (before/after)
