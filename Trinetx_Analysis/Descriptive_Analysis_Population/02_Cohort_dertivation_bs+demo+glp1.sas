@@ -1,13 +1,14 @@
 
 /************************************************************************************
 | Project name : Thesis - BS and GLP1
-| Program name : 02_Cohort_dertivation
+| Program name : 02_Cohort_dertivation_bs+demo+glp1
 | Date (update): June 2024
 | Task Purpose : 
 |      1. All glp1 users (regardless of BS history) (N = 1,088,256)
 |      2. Among BS users, identify glp1 users     (among N = 42,535, glp1 users = 9,410)
 |      3. Indicate the timing of glp1 use compared with the bs_date
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
+| Final dataset : min.bs_glp1_user_v03 (with duplicated indiv)
 ************************************************************************************/
 
 
