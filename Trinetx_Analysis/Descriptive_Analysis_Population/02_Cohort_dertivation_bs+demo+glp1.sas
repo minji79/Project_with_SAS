@@ -79,44 +79,13 @@ glp1 only for obesity:
 	Semaglutide [1991302]
 	Liraglutide [475968]
 	Tirzepatide [2601723]
-*/
-
 * 1) Semaglutide [1991302];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "1991302";
-    title "tx.medication_ingredient_Semaglutide";
-run;
-
 * 2) Dulaglutide [1551291];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "1551291";
-    title "tx.medication_ingredient_Dulaglutide";
-run;
-
 * 3) Liraglutide [475968];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "475968";
-    title "tx.medication_ingredient_Liraglutide";
-run;
-
 * 4) Exenatide [60548];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "60548";
-    title "tx.medication_ingredient_Exenatide";
-run;
-
 * 5) Lixisenatide [1440051];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "1440051";
-    title "tx.medication_ingredient_Lixisenatide";
-run;
-
 * 6) Tirzepatide [2601723];
-proc print data=tx.medication_ingredient (obs=30);
-    where code = "2601723";
-    title "tx.medication_ingredient_Tirzepatide";
-run;
-
+*/
 
 * 1.2. select "all" glp1_users;
 *      sort by patient_id start_date Molecule to see individual's glp1 medication history;
