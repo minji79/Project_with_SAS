@@ -48,6 +48,8 @@ proc print data=min.diagnosis_codelist;
 run;
 
 
+/**************************************************/**************************************************/**************************************************/**************************************************/**************************************************/
+
 * 1.2. stack diagnosis information for individuals in 'min.bs_user_all_v07';
 
 /**************************************************
@@ -56,57 +58,18 @@ run;
 * description: stack diagnosis information for individuals in 'min.bs_user_all_v07'
 **************************************************/
 
-proc sql;
-    create table min.bs_user_comorbidity_v00 as
-    select *
-    from tx.diagnosis
-    where patient_id in (
-        select distinct patient_id from min.bs_user_all_v07
-    );
-quit;
+/* it doesn't work due to the large size of dataset - need more efficient codes */
 
-proc sql;
-  create table min.bs_user_comorbidity_v00 as
-  select d.*
-  from tx.diagnosis d
-  inner join (select distinct patient_id from min.bs_user_all_v07) p
-  on d.patient_id = p.patient_id;
-quit;
-
-
-data min.bs_user_comorbidity_v00;
-  merge min.bs_user_all_v07(in=in1) tx.diagnosis(in=in2);
-  by patient_id;
-  if in1 and in2 then output;
-run;
-
-proc sort data=tx.diagnosis out=min.diagnosis_sorted;
-    by patient_id;
-run;
-
-proc sort data=min.bs_user_all_v07 out=min.bs_user_all_v07_sorted;
-    by patient_id;
-run;
-
-data min.bs_user_comorbidity_v00;
-    merge min.bs_user_all_v07(in=a) tx.diagnosis(in=b);
-    by patient_id;
-    if a; /* Keep only records that exist in min.bs_user_all_v07 */
-run;
-
-
-proc print data=min.bs_user_comorbidity_v00 (obs=30); 
-  title "min.bs_user_comorbidity_v00";
-run;
-
-/*
-proc SQL;
+proc SQL;    
   create table min.bs_user_comorbidity_v00 as
   select a.*, b.*
   from min.bs_user_all_v07 as a left join tx.diagnosis as b
   on a.patient_id = b.patient_id;
 quit;
-*/
+
+proc print data=min.bs_user_comorbidity_v00 (obs=30); 
+  title "min.bs_user_comorbidity_v00";
+run;
 
 
 * 1.3. list up comorbidities;
@@ -116,6 +79,7 @@ quit;
 * original table: min.bs_user_comorbidity_v00
 * description: list up comorbidities;
 **************************************************/
+
 
 %let cc_t2db=%str('E11%', '250.00', '250.02');  /* type 2 diabetes - I don;t use 'E08-E13' */
 %let cc_obs=%str('E66%', '278.0%');  /* obesity */
@@ -213,6 +177,8 @@ run;
 
 
 * 1.4. alternative way to select t2db patients;
+
+/* it also doesn't work due to the large size of dataset - need more efficient codes */
 
 /**************************************************
 * new table: min.comorbidity_t2db_v00
