@@ -6,9 +6,8 @@
 | Task Purpose : 
 |      1. Analysis of glp1 initiation point compared to bs_date across types of temporality (before/after)
 |      2. Analysis of glp1 duration across types of temporality (before/after)
-|      3. 
-|      4. [additional analysis] Specify individuals who have switching within glp1 (semaglutide)
-|      5. [additional analysis] GLP1 time series analysis
+|      3. [additional analysis] Specify individuals who have switching within glp1 (semaglutide)
+|      4. [additional analysis] GLP1 time series analysis
 | Main dataset : (1) min.bs_glp1_user_v03
 ************************************************************************************/
 
@@ -238,19 +237,8 @@ proc means data=min.bs_glp1_user_v04
 run;
 
 
-
-
-
-
-/*******************************************************************************************************************************************************************/
-/*******************************************************************************************************************************************************************/
-/*******************************************************************************************************************************************************************/
-/*******************************************************************************************************************************************************************/
-/*******************************************************************************************************************************************************************/
-
-
 /************************************************************************************
-	STEP 4. [additional analysis] Among glp1 user, specify individuals who have switching within glp1 (semaglutide) 
+	STEP 3. [additional analysis] Among glp1 user, specify individuals who have switching within glp1 (semaglutide) 
 ************************************************************************************/
 
 /**************************************************
@@ -259,7 +247,7 @@ run;
 * description: select the individuals switching medication within glp1
 **************************************************/
 
-* 9.1. make the copy of glp1_users_all with only two variables;
+* 3.1. make the copy of glp1_users_all with only two variables;
 
 proc sql;
     create table min.glp1_user_swt as
@@ -284,7 +272,7 @@ proc print data=min.glp1_user_swt (obs=30);
 	title "min.glp1_user_swt";
 run;
 
-* 9.2. need to check with example of individuals ("#A#4", "#A#BC", "#A#GB");
+* 3.2. need to check with example of individuals ("#A#4", "#A#BC", "#A#GB");
 * check the order of the rows reflected real prescription date;
 
 proc print data=min.glp1_user_all (obs = 30); 
@@ -293,7 +281,7 @@ proc print data=min.glp1_user_all (obs = 30);
 run;
 
 
-* 9.3. Remove the duplication rows - but still have all of drug's code that indiv have;
+* 3.3. Remove the duplication rows - but still have all of drug's code that indiv have;
 
 proc sort data=min.glp1_user_swt nodupkey out=min.glp1_user_swt;
     by _all_;
@@ -301,8 +289,8 @@ proc print data=min.glp1_user_swt (obs=30);
 	title "min.glp1_user_swt";
 run;                            /* remove the duplicated rows - but still have all of drug that indiv have */
 
-* 9.4. select the individuals switching medication within glp1 - with codes;
 
+* 3.4. select the individuals switching medication within glp1 - with codes;
 /**************************************************
 * new dataset: min.glp1_user_swt_v01
 * original dataset: min.glp1_user_swt
@@ -323,7 +311,7 @@ proc print data=min.glp1_user_swt_v01 (obs=30);
 run;   
 
 
-* 9.5. select the "distinct" individuals switching medication within glp1 - without codes;
+* 3.5. select the "distinct" individuals switching medication within glp1 - without codes;
 
 /**************************************************
 * new dataset: min.glp1_user_swt_v02
@@ -353,8 +341,52 @@ run;
 
 /*
 the total of 239,328 individuals switched their glp1 to another type of glp1
-
 */
+
+
+* 3.6. merge with the bs_users dataset ;
+/**************************************************
+* new dataset: min.bs_glp1_user_v12
+* original dataset: min.bs_glp1_user_v11 + min.glp1_user_swt_v02
+* description: select the individuals switching medication within glp1 among our study population
+**************************************************/
+
+proc SQL;    
+  create table min.bs_glp1_user_v12 as
+  select a.*, b.drug_count
+  from min.bs_glp1_user_v11 as a left join min.glp1_user_swt_v02 as b
+  on a.patient_id = b.patient_id;
+quit;    /* 42535 obs */
+
+proc means data=min.bs_glp1_user_v12 n nmiss;
+	var drug_count;
+run;
+
+data min.bs_glp1_user_v12;
+	set min.bs_glp1_user_v12;
+ 	format swt_glp1 8.;
+ 	if missing (drug_count) then swt_glp1 = 0;
+  	else swt_glp1 = 1;
+run;
+
+proc print data=min.bs_glp1_user_v12 (obs=30);
+    var patient_id drug_count swt_glp1;
+    where not missing(drug_count);
+run;
+
+
+
+
+
+
+
+
+
+/*******************************************************************************************************************************************************************/
+/*******************************************************************************************************************************************************************/
+/*******************************************************************************************************************************************************************/
+/*******************************************************************************************************************************************************************/
+/*******************************************************************************************************************************************************************/
 
 
 
