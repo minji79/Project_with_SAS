@@ -4,7 +4,7 @@
 | Program name : Table_1
 | Date (update): July 2024
 | Task Purpose : 
-|      1. select all Bariatric Surgery(BS) users from 100% data (N = 99,350)
+|      1. Categorize variables
 |      2. BS users (initial use date) between 2016 - 2020    (N = 45,761)
 |      3. Merge "BS users 2016 - 2020" + demographic data (N = 45,761)
 |      4. select Age >= 18 (N = 44,959)
@@ -40,12 +40,12 @@ run;
 * 1.1. Age;
 
 proc means data=min.bs_glp1_user_v03
-  n nmiss median mean min max maxdec=1;
+  n nmiss median mean min max std maxdec=1;
   title "min.bs_glp1_user_v03";
 run;
 
 proc means data=min.bs_glp1_user_v04
-  n nmiss median mean min max maxdec=1;
+  n nmiss median mean min max std maxdec=1;
   by temporality;
   title "min.bs_glp1_user_v04";
 run;
