@@ -6,8 +6,10 @@
 | Task Purpose : 
 |      1. Analysis of glp1 initiation point compared to bs_date across types of temporality (before/after)
 |      2. Analysis of glp1 duration across types of temporality (before/after)
-|      3. [additional analysis] Specify individuals who have switching within glp1 (semaglutide)
-|      4. [additional analysis] GLP1 time series analysis
+|      3. [additional analysis] Specify individuals who have switched within glp1 (semaglutide)
+|      4. specify 'glp1_bf_users' 
+
+|      5. [additional analysis] GLP1 time series analysis
 | Main dataset : (1) min.bs_glp1_user_v03
 ************************************************************************************/
 
@@ -20,6 +22,13 @@
 *       1  : take glp1 before BS   (n = 4151)
 *       2  : take glp1 after BS    (n = 5259)
 * glp1_expose_period
+**************************************************/
+/**************************************************
+              Variable Definition
+* table: min.bs_glp1_user_v13
+* subgroup (among temporality = 1, n = 4151)
+*       3  : glp1_date < bs_date   (n = 2489)
+*       4  : glp1_date > bs_date   (n = 1662)
 **************************************************/
 
 /*
@@ -375,11 +384,48 @@ proc print data=min.bs_glp1_user_v12 (obs=30);
 run;
 
 
+/************************************************************************************
+	STEP 4. Analysis of glp1 discontinuation point compared to bs_date across glp1_before_users group
+************************************************************************************/
+
+* 4.1. compare the discontinuation date versus bs_date;
+/**************************************************
+* new dataset: min.bs_glp1_user_v13
+* original dataset: min.bs_glp1_user_v12
+* description: compare the discontinuation date versus bs_date
+* 		(glp1_date = glp1_last_date)
+**************************************************/
+
+proc contents data=min.bs_glp1_user_v12;
+	title "min.bs_glp1_user_v12";
+run;           /* 42535 distinct patients */
+
+data min.bs_glp1_user_v13;
+    set min.bs_glp1_user_v12;
+    format subgroup 8.;
+    where temporality = 1;
+    
+    if glp1_date > bs_date then subgroup = 4;
+    else subgroup = 3;
+run;      /* 4151 obs (temporality = 1) */
+
+proc print data=min.bs_glp1_user_v13 (obs=30);
+	var patient_id temporality glp1_date bs_date subgroup;
+ 	title "min.bs_glp1_user_v13";
+run;
+
+proc freq data=min.bs_glp1_user_v13;
+	table subgroup;
+run;
 
 
-
-
-
+/**************************************************
+              Variable Definition
+* table: min.bs_glp1_user_v13
+* subgroup (among temporality = 1, n = 4151)
+*       3  : glp1_date < bs_date   (n = 2489)
+*       4  : glp1_date > bs_date   (n = 1662)
+**************************************************/
 
 
 /*******************************************************************************************************************************************************************/
