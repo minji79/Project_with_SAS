@@ -14,7 +14,7 @@ ssh -X mkim@jhpce03.jhsph.edu
 cd /dcs07/trinetx/data/
 cd /users/mkim/
 
-srun --pty --x11 --partition sas bash
+srun --pty --x11 --partition=rocky94 sas bash
 module load sas
 sas -helpbrowser SAS -xrm "SAS.webBrowser:'/usr/bin/chromium-browser'" -xrm "SAS.helpBrowser:'/usr/bin/chromium-browser'"
 
