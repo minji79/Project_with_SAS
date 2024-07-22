@@ -6,7 +6,7 @@
 | Task Purpose : 
 |      1. Analysis of glp1 initiation point compared to bs_date across types of temporality (before/after)
 |      2. Analysis of glp1 duration across types of temporality (before/after)
-|      3. [additional analysis] Specify individuals who have switched within glp1 (semaglutide)
+|      3. [additional analysis] Specify individuals who have switched within glp1 (semaglutide) - allow to switch within GLP1
 |      4. specify 'glp1_bf_users' 
 
 |      5. [additional analysis] GLP1 time series analysis
