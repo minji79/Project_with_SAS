@@ -10,7 +10,8 @@
 
 * 1. Access to JHPCE;
 
-ssh -X mkim@jhpce03.jhsph.edu
+ssh -X mkim@jhpce01.jhsph.edu
+               /* ssh -X mkim@jhpce03.jhsph.edu */
 cd /dcs07/trinetx/data/
 cd /users/mkim/
 
