@@ -5,10 +5,7 @@
 | Date (update): July 2024
 | Task Purpose : 
 |      1. Categorize variables
-|      2. BS users (initial use date) between 2016 - 2020    (N = 45,761)
-|      3. Merge "BS users 2016 - 2020" + demographic data (N = 45,761)
-|      4. select Age >= 18 (N = 44,959)
-|      5. exclude individuals without sex information (N = 00)
+|    		age ...
 | Main dataset : (1) min.bs_user_all_v07, (2) min.bs_glp1_user_v03
 ************************************************************************************/
 
@@ -302,6 +299,21 @@ n nmiss median mean min max std;
 run;
 
 
+* 1.10. glp1_type_cat - categorized;
+/**************************************************
+* new dataset: min.bs_glp1_user_v13
+* original dataset: min.bs_glp1_user_v12
+* description: glp1_type_cat - categorized
+**************************************************/
 
-
+data min.bs_glp1_user_v13;
+  set min.bs_glp1_user_v12;
+  format glp1_type_cat 8.;
+  if Molecule = "Semaglutide" then glp1_type_cat = 1;
+  else if Molecule = "Liraglutide" then glp1_type_cat = 2;
+  else if Molecule = "Dulaglutide" then glp1_type_cat = 3;
+  else if Molecule = "Exenatide" then glp1_type_cat = 4;
+  else if Molecule = "Lixisenatide" then glp1_type_cat = 5;
+  else if Molecule = "Tirzepatide" then glp1_type_cat = 6;
+run;
 
