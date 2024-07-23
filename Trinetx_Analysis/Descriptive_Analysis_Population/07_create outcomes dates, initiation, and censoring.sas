@@ -8,12 +8,9 @@
 |      2. Generate study entry variable to account for the late entry - we don't have late entry based on study design
 |      3. Generate study exit variable - (1) event | glp1_initation, (2) censor_date | censoring scenario
 |         Generate variable for the event status : event = 1, censoring = 0 
-|      4. Generate duration of follow-up variable | time_to_event = exit_date – entry_date(bs_date)
-
-
-|      5. Select covariable for further adjustment
-| Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
-| Final dataset : min.bs_glp1_user_v03 (with duplicated indiv)
+|      4. Generate "exit_date" variable (with init_glp1)
+| Main dataset : 
+| Final dataset : min.time_to_glp1_v06
 ************************************************************************************/
 
 /**************************************************
@@ -349,7 +346,7 @@ proc means data=min.time_to_glp1_v05 n nmiss;
 run;
 
 /************************************************************************************
-	STEP 4. Generate "exit_date"
+	STEP 4. Generate "exit_date" variable
 ************************************************************************************/
 
 * 4.1. Generate "exit_date" variable ;
