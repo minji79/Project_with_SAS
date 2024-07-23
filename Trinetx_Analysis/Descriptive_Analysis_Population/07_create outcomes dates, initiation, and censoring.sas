@@ -84,7 +84,7 @@ data min.time_to_glp1_v02;
   else death_date = death_date_source_id_num;
 run;
 
-* 3.2. lost to follow-up | identify the last date of encounter by patients;
+* 3.2. lost to follow-up;
 * last_visit_date YYMMDD10.;
 
 /**************************************************
@@ -93,6 +93,7 @@ run;
 * description: add death_date
 **************************************************/
 
+/* see the original data */
 proc print data=tx.encounter (obs=30);
     title "tx.encounter";
 run;
@@ -101,16 +102,26 @@ proc contents data=tx.encounter;
     title "tx.encounter";
 run;
 
+/* identify the last date of encounter by patients */
 proc SQL;
   create table min.time_to_glp1_v02 as
-  select a.* b.
+  select a.* b.encounter_id b.start_date b.end_date b.type
   from min.time_to_glp1_v01 as a tx.encounter as b
   where a.patient_id = b.patient_id;
 quit;
 
-proc sort data=min.time_to_glp1_v02 ;
-  by patient_id;
+proc sort data=min.time_to_glp1_v02;
+  by patient_id end_date descending; 
 run;
+data min.time_to_glp1_v02;
+	set min.time_to_glp1_v02;
+ 	encounter
+ 	if first.patient_id;       /* to remain the last encounter date by patients */
+run;
+
+
+
+
 
 * 3.2. select the earliest date among the several censoring end points;
 /**************************************************
