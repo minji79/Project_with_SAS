@@ -4,9 +4,14 @@
 | Program name : 07_create outcomes dates, initiation, and censoring
 | Date (update): July 2024
 | Task Purpose : 
-|      1. 
-|      2. 
-|      3. 
+|      1. Exclude people who did not undergo BS (no time origin) & had GLP-1 exposure before BS date  (N = 38384)
+|      2. Generate study entry variable to account for the late entry - we don't have late entry based on study design
+|      3. Generate study exit variable - (1) event | glp1_initation, (2) censor_date | censoring scenario
+|         Generate variable for the event status : event = 1, censoring = 0 
+|      4. Generate duration of follow-up variable | time_to_event = exit_date – entry_date(bs_date)
+
+
+|      5. Select covariable for further adjustment
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
 | Final dataset : min.bs_glp1_user_v03 (with duplicated indiv)
 ************************************************************************************/
@@ -344,7 +349,7 @@ proc means data=min.time_to_glp1_v05 n nmiss;
 run;
 
 /************************************************************************************
-	STEP 4. Generate duration of follow-up variable | time_to_event = last date(exit time point) – BS date
+	STEP 4. Generate duration of follow-up variable | time_to_event = exit_date – entry_date(bs_date)
 ************************************************************************************/
 
 /**************************************************
@@ -445,7 +450,7 @@ quit;     /* 679 distinct individuals */
 
 
 /************************************************************************************
-	STEP 5. select covariable for further adjustment
+	STEP 5. Select covariable for further adjustment
 ************************************************************************************/
 
 /**************************************************
