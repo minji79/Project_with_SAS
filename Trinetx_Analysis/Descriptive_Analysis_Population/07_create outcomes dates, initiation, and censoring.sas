@@ -349,31 +349,14 @@ proc means data=min.time_to_glp1_v05 n nmiss;
 run;
 
 /************************************************************************************
-	STEP 4. Generate duration of follow-up variable | time_to_event = exit_date – entry_date(bs_date)
+	STEP 4. Generate "exit_date"
 ************************************************************************************/
 
-/**************************************************
-              Variable Name and Definition
-* study entry
-*   	entry_date | BS date (time origin)
-* study exit
-*   event
-* 	init_glp1_event | 0 = censored, 1 = event
-* 	init_glp1_date | the first GLP-1 initiation date
-*   censoring
-* 	0) censor_date
-* 	0) censor_type
-*   	1) lost to FU = the last encounter date
-*   	2) death_date | competing risk 1 - death 
-*   	3) comedi_antiob_start_date | competing risk 2 - switching to other type of anti-obesity medication
-* 	4) encounter_end_date | lost to follow-up
-*   	5) study_end_date | administrative censoring (2023.12.31)
-**************************************************/
-
+* 4.1. Generate "exit_date" variable ;
 /**************************************************
 * new dataset: min.time_to_glp1_v06
 * original dataset: min.time_to_glp1_v05
-* description: exit_date & time_to_exit
+* description: exit_date 
 **************************************************/
 
 data min.time_to_glp1_v06;
@@ -386,18 +369,9 @@ data min.time_to_glp1_v06;
   	censor_type = "event";
    	censor_type_cat = 5;
   end;
-  
-  if not missing(exit_date) then time_to_exit = exit_date - entry_date;
-  else time_to_exit = .;
-  
-  format exit_date yymmdd10. time_to_exit 8.;
-run;     
- 
-
-* 3.6. see distribution of "time_to_exit" = duration of follow-up ;
-proc means data=min.time_to_glp1_v06 n nmiss median mean min max std;
-	var time_to_exit;
 run;
+
+* 4.2. distribution of censor_type_cat;
 
 proc sort data=min.time_to_glp1_v06;
 	by censor_type_cat;
@@ -408,60 +382,11 @@ proc means data=min.time_to_glp1_v06 n nmiss;
   	title "Summary Statistics by Censoring Type";
 run;
 
-
-* 3.7. negative value?? ; 
-proc print data=min.time_to_glp1_v06 (obs=100);
-	var patient_id init_glp1_date exit_date censor_type entry_date bs_date time_to_exit ;
-	where time_to_exit <0;
-run;   
-
-proc sql;
-    select count(distinct patient_id) as negative_duration
-    from min.time_to_glp1_v06
-    where time_to_exit < 0;
-quit;    /* 697 of negative values in time_to_exit variables */
-
-proc freq data=min.time_to_glp1_v06;
-    tables censor_type_cat / list missing;
-    where time_to_exit < 0;
-run;      /* 697 of negative values in time_to_exit variables : 678 = death, 19 = lost follow-up */
-
-/* see death data with other dataset */
-data min.bs_glp1_user_v13;
-  set min.bs_glp1_user_v12;
-  death_year = input(substr(month_year_death, 1, 4), 4.);
-  death_month = input(substr(month_year_death, 5, 2), 2.);
-  death_date = mdy(death_month,15,death_year);
-  format death_date yymmdd10.;
-run;   /* 42535 obs */
-
-proc print data=min.bs_glp1_user_v13 (obs=30);
-	var patient_id month_year_death death_date bs_date temporality;
- 	where death_date < bs_date and death_date ne .;
- 	title "min.bs_glp1_user_v13";
-run;
-
-proc sql;
-    select count(distinct patient_id) as negative_duration
-    from min.bs_glp1_user_v13
-    where death_date < bs_date and temporality ne 1 and death_date ne .;
-quit;     /* 679 distinct individuals */
-
-
-
-/************************************************************************************
-	STEP 5. Select covariable for further adjustment
-************************************************************************************/
-
-/**************************************************
-              Covariables
-* 1) 
-**************************************************/
-
-
-
-
-
-
-
-
+/*
+1. death = 3041
+2. switching = 1745
+3. lost to FU = 29273
+4. administrative censored = 0
+5. glp1 initiation = 4325   (5259)
+total = 38384
+*/
