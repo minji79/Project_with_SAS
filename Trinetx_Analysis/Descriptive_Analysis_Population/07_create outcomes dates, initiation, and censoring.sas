@@ -24,11 +24,10 @@
 *   censoring
 * 	0) censor_date
 * 	0) censor_type
-*   	1) lost to FU = the last encounter date
-*   	2) death_date | competing risk 1 - death 
-*   	3) comedi_antiob_start_date | competing risk 2 - switching to other type of anti-obesity medication
-* 	4) encounter_end_date | lost to follow-up
-*   	5) study_end_date | administrative censoring (2023.12.31)
+*   	1) death_date | competing risk 1 - death 
+*   	2) comedi_antiob_start_date | competing risk 2 - switching to other type of anti-obesity medication
+* 	3) encounter_end_date | lost to follow-up (= the last encounter date)
+*   	4) study_end_date | administrative censoring (2023.12.31)
 **************************************************/
 
 
