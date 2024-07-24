@@ -42,3 +42,11 @@ libname min "/dcs07/trinetx/data/Users/MJ";
 libname m "/users/mkim/trinetx/100p";
 libname mj "/users/mkim/trinetx/5p_test";
 
+
+* 3. if I have X11 connection issue;
+/*
+This can happen if you are running the chromium browser, and your session gets interrupted, so that chromium does not exit properly and clean up after itself.
+*/
+
+rm ~/.config/chromium/Singleton*
+
