@@ -37,6 +37,8 @@ libname test "/dcs07/trinetx/data";
 
 * to locate my own data analysis output under users in teamfolder;
 libname min "/dcs07/trinetx/data/Users/MJ";
+libname jd "/dcs07/trinetx/data/Users/MJ/jodi";
+
 
 * to locate my own data analysis output in my own directory;
 libname m "/users/mkim/trinetx/100p";
