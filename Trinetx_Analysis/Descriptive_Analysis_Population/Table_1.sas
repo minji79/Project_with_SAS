@@ -6,6 +6,7 @@
 | Task Purpose : 
 |      1. Categorize variables
 |    		age ...
+|      2. Reorganize study population (n = 38384)
 | Main dataset : (1) min.bs_user_all_v07, (2) min.bs_glp1_user_v03
 ************************************************************************************/
 
@@ -18,6 +19,7 @@
 *       2  : take glp1 after BS    (n = 5259)
 * glp1_expose_period
 **************************************************/
+
 
 /************************************************************************************
 	STEP 1. Categorize variables
@@ -316,4 +318,256 @@ data min.bs_glp1_user_v13;
   else if Molecule = "Lixisenatide" then glp1_type_cat = 5;
   else if Molecule = "Tirzepatide" then glp1_type_cat = 6;
 run;
+
+
+/************************************************************************************
+	STEP 2. Reorganize study population (n = 38384)
+************************************************************************************/
+
+/**************************************************
+* new dataset: min.bs_glp1_user_38384_v00
+* original dataset: min.bs_glp1_user_v13
+* description: remain only 38384
+**************************************************/
+
+data min.bs_glp1_user_38384_v00;
+	set min.bs_glp1_user_v13;
+ 	if temporality ne 1;
+run;             /* 38384 obs */
+
+
+/************************************************************************************
+	STEP 3. re-do all of the statistics with p value with 38384
+************************************************************************************/
+
+/***********************************************************
+1. continuous variables
+
+/* Perform a t-test for continuous variables */
+proc ttest data=mydata;
+   class group;
+   var bmi;
+   ods output TTests=ttest_results;
+run;
+
+/* Extract the p-value from the t-test result */
+data ttest_pvalue;
+    set ttest_results;
+    where Method = "Pooled";
+    pvalue_bmi = ProbT;
+    keep pvalue_bmi;
+run;
+
+2. categorical variables
+
+/* Perform a Chi-Square Test for categorical variables */
+proc freq data=mydata;
+   tables group*gender / chisq;
+   ods output ChiSq=chisq_results;
+run;
+
+/* Extract the p-value from the chi-square result */
+data chisq_pvalue;
+    set chisq_results;
+    where Statistic = "Chi-Square";
+    pvalue_gender = Prob;
+    keep pvalue_gender;
+run;
+************************************************************/
+
+* 3.1. Age - continuous;
+/* updated total */
+proc means data=min.bs_glp1_user_38384_v00
+  n nmiss median mean min max std maxdec=1;
+  title "min.bs_glp1_user_38384_v00";
+run;
+
+/* p-value */
+proc ttest data=min.bs_glp1_user_38384_v00;
+   class temporality;
+   var age_at_bs;
+   ods output TTests=ttest_results;
+run;
+data ttest_pvalue;
+    set ttest_results;
+    where Method = "Pooled";
+    pvalue_age = ProbT;
+    keep pvalue_age;
+run;
+proc print data=ttest_pvalue;
+run;
+
+* 3.2. Age - categorical;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by age_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var age_at_bs;
+  by age_cat;
+  title "age_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*age_cat / chisq;
+run;
+
+
+* 3.3. Sex - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by sex_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS sex_cat;
+  by sex_cat;
+  title "sex_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*sex_cat / chisq;
+run;
+
+
+* 3.4. race - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by race_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS race_cat;
+  by race_cat;
+  title "race_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*race_cat / chisq;
+run;
+
+
+* 3.5. ethnicity - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by ethnicity_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS ethnicity_cat;
+  by ethnicity_cat;
+  title "ethnicity_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*ethnicity_cat / chisq;
+run;
+
+
+* 3.6. marital - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by marital_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS marital_cat;
+  by marital_cat;
+  title "marital_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*marital_cat / chisq;
+run;
+
+
+* 3.7. regional - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by regional_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS regional_cat;
+  by regional_cat;
+  title "regional_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*regional_cat / chisq;
+run;
+
+
+* 3.8. BS type - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by bs_type_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS bs_type_cat;
+  by bs_type_cat;
+  title "bs_type_cat";
+run;
+
+/* p-value */
+proc freq data=min.bs_glp1_user_38384_v00;
+   tables temporality*bs_type_cat / chisq;
+run;
+
+
+* 3.9. glp1 type - categorized;
+/* updated total */
+proc sort data=min.bs_glp1_user_38384_v00;
+  by glp1_type_cat;
+run;
+proc means data=min.bs_glp1_user_38384_v00
+n nmiss median mean min max std;
+  var glp1_after_BS glp1_before_BS glp1_type_cat;
+  by glp1_type_cat;
+  title "glp1_type_cat";
+run;
+
+
+* 3.10. BMI at the index time;
+/* updated total : Among 42,535, Only 15,324 individuals (36%) have BMI_index*/
+data min.bs_glp1_bmi_v01_index_18937;
+	set min.bs_glp1_bmi_v01_18937;
+ 
+	var patient_id temporality bs_date bmi_date gap1 bmi bmi_index;
+ 	where temporality = 2;
+ 	title "min.bs_glp1_bmi_v01_18937";
+run;
+
+
+
+
+/* p-value */
+proc ttest data=min.bs_glp1_user_38384_v00;
+   class temporality;
+   var bmi_index;
+   ods output TTests=ttest_results;
+run;
+data ttest_pvalue;
+    set ttest_results;
+    where Method = "Pooled";
+    pvalue_age = ProbT;
+    keep pvalue_age;
+run;
+proc print data=ttest_pvalue;
+run;
+
+
+
+
+
+
+
 
