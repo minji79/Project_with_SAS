@@ -2,7 +2,7 @@
 /************************************************************************************
 | Project name : Thesis - BS and GLP1
 | Program name : 04_Covariate_comorbidity
-| Date (update): July 2024
+| Date (update): August 2024
 | Task Purpose : 
 |      1. Create Comorbidity lists using the ICD_10_CT and ICD_9_CT codes
 |      2. 
@@ -48,8 +48,6 @@ proc print data=min.diagnosis_codelist;
 run;
 
 
-/**************************************************/**************************************************/**************************************************/**************************************************/**************************************************/
-
 * 1.2. stack diagnosis information for individuals in 'min.bs_user_all_v07';
 
 /**************************************************
@@ -60,12 +58,19 @@ run;
 
 /* it doesn't work due to the large size of dataset - need more efficient codes */
 
-proc SQL;    
-  create table min.bs_user_comorbidity_v00 as
-  select a.*, b.*
-  from min.bs_user_all_v07 as a left join tx.diagnosis as b
-  on a.patient_id = b.patient_id;
+
+
+proc sql;
+    create table min.bs_user_comorbidity_v00 as 
+    select a.patient_id, 
+           b.*  /* Select all columns from table b */
+    from min.bs_glp1_user_38384_v00 as a 
+    left join tx.diagnosis as b
+    on a.patient_id = b.patient_id;
 quit;
+
+
+
 
 proc print data=min.bs_user_comorbidity_v00 (obs=30); 
   title "min.bs_user_comorbidity_v00";
