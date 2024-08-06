@@ -7,13 +7,9 @@
 |      2. merge BMI information with our study cohort
 |      3. bmi_index | the clostest value prior to the first bs_date (n = 40,605)
 |      4. bmi_bf_glp1 | the clostest value prior to the first glp1 prescription date (n = 4048)
-|      4. bmi_bf_glp1 | the clostest value prior to the first glp1 prescription date (n = 4048)
-
-
-
-
-|      3. weight time series analysis
-|      4. BMI calculation with weight and height -> Compare to the BMI
+|      5. bmi_af_glp1 | the clostest value after the glp1 discontinuation date (n = )
+|      6. Make variables for BMI value over time from BS date
+|      additional. weight time series analysis
 | Main dataset : (1) tx.vitals_signs
 ****************************************************************************/
 
@@ -314,10 +310,17 @@ data min.bs_glp1_bmi_v01_18937;
  	bmi_index = bmi;
 run;
 
+data min.bs_glp1_bmi_v01_18937;
+	set min.bs_glp1_bmi_v01_18937;
+ 	if temporality ne 1;
+  run;
+
+
 proc print data=min.bs_glp1_bmi_v01_18937 (obs=30);
 	var patient_id bs_date bmi_date gap1 bmi bmi_index;
  	title "min.bs_glp1_bmi_v01_18937";
 run;
+
 
 /*
 proc datasets library=min nolist;
@@ -330,17 +333,8 @@ quit;
 
 proc means data=min.bs_glp1_bmi_v01_18937 n nmiss median p25 p75;
     var bmi_index;
-    output out=iqr_results
-        n=N
-        nmiss=NMISS
-        median=Median
-        p25=Q1
-        p75=Q3;
+    title "bmi_index";
 run;
-
-proc print data=iqr_results;
-run;
-
 
 * 3.3. calculate the median and IQR for each sub-group population;
 
@@ -351,17 +345,8 @@ run;
 proc means data=min.bs_glp1_bmi_v01_18937 n nmiss median p25 p75;
     var bmi_index;
     by temporality;
-    output out=iqr_results
-        n=N
-        nmiss=NMISS
-        median=Median
-        p25=Q1
-        p75=Q3;
-run;
-
-proc print data=iqr_results;
-run;
-
+	title "bmi_index";
+   run;
 
 
 /************************************************************************************
@@ -419,16 +404,9 @@ quit;
 
 proc means data=min.bs_glp1_bmi_v02_4048 n nmiss median p25 p75;
     var bmi_bf_glp1;
-    output out=iqr_results
-        n=N
-        nmiss=NMISS
-        median=Median
-        p25=Q1
-        p75=Q3;
+	title "min.bs_glp1_bmi_v02_4048";
 run;
 
-proc print data=iqr_results;
-run;
 
 * 4.3. calculate the median and IQR for each sub-group population;
 
@@ -439,12 +417,7 @@ run;
 proc means data=min.bs_glp1_bmi_v02_4048 n nmiss median p25 p75;
     var bmi_bf_glp1;
     by temporality;
-    output out=iqr_results
-        n=N
-        nmiss=NMISS
-        median=Median
-        p25=Q1
-        p75=Q3;
+    title "min.bs_glp1_bmi_v02_4048";
 run;
 
 proc print data=iqr_results;
@@ -455,78 +428,300 @@ run;
 	STEP 5. bmi_af_glp1 | the clostest value after discontinuation of the last glp1 prescription with assuming 60 days of supply (n = )
 ************************************************************************************/
 
-* 5.1. generate 'bmi_bf_glp1' variable;
+
+/************************************************************************************
+	STEP 6. Make variables for BMI value over time from BS date
+************************************************************************************/
+
+/*
+variables' name
+bmi_1y_bf | BMI 1 year before the BS date
+bmi_6m_bf | BMI 6 months before the BS date
+bmi_1y_af | BMI 1 year after the BS date
+bmi_2y_af | BMI 2 years after the BS date
+bmi_3y_af | BMI 3 years after the BS date
+*/
+
+
+* 6.1. bmi_1y_bf | BMI 1 year before the BS date;
 /**************************************************
-* new table: min.bs_glp1_bmi_v03    /* 00 */
+* new table: min.bs_glp1_bmi_1y_bf_v00    
 * original table: min.bs_glp1_bmi_v00
 * description: indicate 'bmi_af_glp1' which is the clostest value after discontinuation of the last glp1 prescription with assuming 60 days of supply
 **************************************************/
 
-data min.bs_glp1_bmi_v03;
+data min.bs_glp1_bmi_1y_bf_v00;
+	set min.bs_glp1_bmi_v00;
+ 	if missing(bmi_date) then delete;
+  if temporality = 1 then delete;
+run;         /* 865451 obs -> 843783 obs */
+
+
+data min.bs_glp1_bmi_1y_bf_v01;
+   set min.bs_glp1_bmi_1y_bf_v00;
+   if bs_date - 365 < bmi_date and bmi_date < bs_date then do;
+   	gap = bmi_date - bs_date + 365;
+   end;
+   else delete;
+run;
+
+proc sort data = min.bs_glp1_bmi_1y_bf_v01;
+	by patient_id gap;
+run;     /* the smaller gap = the closer from the 1 yr prior to the surgery */
+
+/* distinct population */
+data min.bs_glp1_bmi_1y_bf_v02;
+	set min.bs_glp1_bmi_1y_bf_v01;
+ 	by patient_id;
+ 	if first.patient_id;
+run;       
+
+data min.bs_glp1_bmi_1y_bf_v02;
+	set min.bs_glp1_bmi_1y_bf_v02;
+ 	if temporality = 1 then delete;
+run;     /* 16305 distinct patients */
+
+
+/* distribution of the values */
+proc sort data = min.bs_glp1_bmi_1y_bf_v02;
+	by temporality;
+run;
+
+proc means data=min.bs_glp1_bmi_1y_bf_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_1y_bf_v02";
+run;
+proc means data=min.bs_glp1_bmi_1y_bf_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	by temporality;
+ 	title "min.bs_glp1_bmi_1y_bf_v02";
+run;
+
+
+* 6.2. bmi_6m_bf | BMI 6 months before the BS date;
+/**************************************************
+* new table: min.bs_glp1_bmi_6m_bf_v00    
+* original table: min.bs_glp1_bmi_v00
+* description: indicate 'bmi_af_glp1' which is the clostest value after discontinuation of the last glp1 prescription with assuming 60 days of supply
+**************************************************/
+
+data min.bs_glp1_bmi_6m_bf_v00;    
 	set min.bs_glp1_bmi_v00;
  	if missing(bmi_date) then delete;
 run;         /* 865451 obs -> 843783 obs */
+data min.bs_glp1_bmi_6m_bf_v00;    
+	set min.bs_glp1_bmi_6m_bf_v00;    
+ 	if temporality = 1 then delete;
+run;         /* 717115 obs */
 
-data min.bs_glp1_bmi_v03;
-	set min.bs_glp1_bmi_v03;
- 	if glp1_last_date + 60 < bmi_date then do;
-  		gap3 = bmi_date - glp1_last_date - 60;
-  	end;
- 	else delete;
-run;          /* 642735 obs  (=  distinct patients) */
 
-proc sort data=min.bs_glp1_bmi_v03;
-	by patient_id gap3;
-run;  
+data min.bs_glp1_bmi_6m_bf_v01;
+   set min.bs_glp1_bmi_6m_bf_v00;
+   if bs_date - 365/2 < bmi_date and bmi_date < bs_date then do;
+   	gap = bmi_date - bs_date + 365/2;
+   end;
+   else delete;
+run;
 
-data min.bs_glp1_bmi_v03;
-	set min.bs_glp1_bmi_v03;
+proc sort data = min.bs_glp1_bmi_6m_bf_v01;
+	by patient_id gap;
+run;     /* the smaller gap = the closer from the 6 months prior to the surgery */
+
+/* distinct population */
+data min.bs_glp1_bmi_6m_bf_v02;
+	set min.bs_glp1_bmi_6m_bf_v01;
  	by patient_id;
  	if first.patient_id;
-run;       /* 18729 distinct patients */
+run;       /* 15859 obs */
 
-data min.bs_glp1_bmi_v02_4048;
-	set min.bs_glp1_bmi_v02;
- 	bmi_bf_glp1 = bmi;
+/* distribution of the values */
+proc sort data = min.bs_glp1_bmi_6m_bf_v02;
+	by temporality;
 run;
 
-proc print data=min.bs_glp1_bmi_v02_4048 (obs=30);
-	var patient_id bs_date bmi_date gap2 bmi bmi_bf_glp1;
- 	title "min.bs_glp1_bmi_v02_4048";
+proc means data=min.bs_glp1_bmi_6m_bf_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_6m_bf_v02";
 run;
-
-/*
-proc datasets library=min nolist;
-    delete bs_glp1_bmi_v02;
-quit;
-*/
-
-
-* 4.2. calculate the median and IQR;
-
-proc means data=min.bs_glp1_bmi_v02_4048 n nmiss median p25 p75;
-    var bmi_bf_glp1;
-    output out=iqr_results
-        n=N
-        nmiss=NMISS
-        median=Median
-        p25=Q1
-        p75=Q3;
-run;
-
-proc print data=iqr_results;
+proc means data=min.bs_glp1_bmi_6m_bf_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	by temporality;
+ 	title "min.bs_glp1_bmi_6m_bf_v02";
 run;
 
 
+* 6.3. bmi_1y_af | BMI 1 year after the BS date;
+/**************************************************
+* new table: min.bs_glp1_bmi_1y_af_v00    
+* original table: min.bs_glp1_bmi_v00
+* description: 
+**************************************************/
+
+data min.bs_glp1_bmi_1y_af_v00;    
+	set min.bs_glp1_bmi_v00;
+ 	if missing(bmi_date) then delete;
+run;         /* 865451 obs -> 843783 obs */
+data min.bs_glp1_bmi_1y_af_v00;    
+	set min.bs_glp1_bmi_1y_af_v00;    
+ 	if temporality = 1 then delete;
+run;         /* obs */
 
 
+data min.bs_glp1_bmi_1y_af_v01;
+   set min.bs_glp1_bmi_1y_af_v00;
+   if bs_date + 365 < bmi_date and bmi_date < bs_date + 365 + 90 then do;
+   	gap = bmi_date - bs_date;
+   end;
+   else delete;
+run;
+
+proc sort data = min.bs_glp1_bmi_1y_af_v01;
+	by patient_id gap;
+run;    
+
+/* distinct population */
+data min.bs_glp1_bmi_1y_af_v02;
+	set min.bs_glp1_bmi_1y_af_v01;
+ 	by patient_id;
+ 	if first.patient_id;
+run;       /* 7381 obs */
+
+/* distribution of the values */
+proc sort data = min.bs_glp1_bmi_1y_af_v02;
+	by temporality;
+run;
+
+proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_1y_af_v02";
+run;
+proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+	by temporality;
+ 	title "min.bs_glp1_bmi_1y_af_v02";
+run;
+
+
+proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_1y_af_v02";
+run;
+proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+	by temporality;
+ 	title "min.bs_glp1_bmi_1y_af_v02";
+run;
+
+
+* 6.4. bmi_2y_af | BMI 2 years after the BS date;
+/**************************************************
+* new table: min.bs_glp1_bmi_2y_af_v00    
+* original table: min.bs_glp1_bmi_v00
+* description: 
+**************************************************/
+
+data min.bs_glp1_bmi_2y_af_v00;    
+	set min.bs_glp1_bmi_v00;
+ 	if missing(bmi_date) then delete;
+run;         /* 865451 obs -> 843783 obs */
+data min.bs_glp1_bmi_2y_af_v00;    
+	set min.bs_glp1_bmi_2y_af_v00;    
+ 	if temporality = 1 then delete;
+run;         /* 717115 obs */
+
+
+data min.bs_glp1_bmi_2y_af_v01;
+   set min.bs_glp1_bmi_2y_af_v00;
+   if bs_date + 365*2 < bmi_date and bmi_date < bs_date + 365*2 + 90 then do;
+   	gap = bmi_date - bs_date;
+   end;
+   else delete;
+run;
+
+proc sort data = min.bs_glp1_bmi_2y_af_v01;
+	by patient_id gap;
+run;    
+
+/* distinct population */
+data min.bs_glp1_bmi_2y_af_v02;
+	set min.bs_glp1_bmi_2y_af_v01;
+ 	by patient_id;
+ 	if first.patient_id;
+run;       /* 5752 obs */
+
+/* distribution of the values */
+proc sort data = min.bs_glp1_bmi_2y_af_v02;
+	by temporality;
+run;
+
+proc means data=min.bs_glp1_bmi_2y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_2y_af_v02";
+run;
+proc means data=min.bs_glp1_bmi_2y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+	by temporality;
+ 	title "min.bs_glp1_bmi_2y_af_v02";
+run;
+
+
+* 6.5. bmi_3y_af | BMI 3 years after the BS date;
+/**************************************************
+* new table: min.bs_glp1_bmi_3y_af_v00    
+* original table: min.bs_glp1_bmi_v00
+* description: 
+**************************************************/
+
+data min.bs_glp1_bmi_3y_af_v00;    
+	set min.bs_glp1_bmi_v00;
+ 	if missing(bmi_date) then delete;
+run;         /* 865451 obs -> 843783 obs */
+data min.bs_glp1_bmi_3y_af_v00;    
+	set min.bs_glp1_bmi_3y_af_v00;    
+ 	if temporality = 1 then delete;
+run;         /* 717115 obs */
+
+
+data min.bs_glp1_bmi_3y_af_v01;
+   set min.bs_glp1_bmi_3y_af_v00;
+   if bs_date + 365*3 < bmi_date and bmi_date < bs_date + 365*3 + 90 then do;
+   	gap = bmi_date - bs_date;
+   end;
+   else delete;
+run;
+
+proc sort data = min.bs_glp1_bmi_3y_af_v01;
+	by patient_id gap;
+run;    
+
+/* distinct population */
+data min.bs_glp1_bmi_3y_af_v02;
+	set min.bs_glp1_bmi_3y_af_v01;
+ 	by patient_id;
+ 	if first.patient_id;
+run;       /* 4681 obs */
+
+/* distribution of the values */
+proc sort data = min.bs_glp1_bmi_3y_af_v02;
+	by temporality;
+run;
+
+proc means data=min.bs_glp1_bmi_3y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+ 	title "min.bs_glp1_bmi_3y_af_v02";
+run;
+proc means data=min.bs_glp1_bmi_3y_af_v02 n nmiss median p25 p75 min max;
+	var bmi;
+	by temporality;
+ 	title "min.bs_glp1_bmi_3y_af_v02";
+run;
 
 
 
 
 
 /****************************************************************************
-* Step 3. weight time series analysis
+* additional analysis. weight time series analysis
 ****************************************************************************/
 
 * 3.1. make a table with only Weight information sorted by patients.id;
