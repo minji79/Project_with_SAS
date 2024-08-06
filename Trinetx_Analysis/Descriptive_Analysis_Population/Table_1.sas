@@ -538,32 +538,27 @@ run;
 
 * 3.10. BMI at the index time;
 /* updated total : Among 42,535, Only 15,324 individuals (36%) have BMI_index*/
-data min.bs_glp1_bmi_v01_index_18937;
-	set min.bs_glp1_bmi_v01_18937;
- 
-	var patient_id temporality bs_date bmi_date gap1 bmi bmi_index;
- 	where temporality = 2;
+proc freq data=min.bs_glp1_bmi_v01_18937;
+	table temporality;
  	title "min.bs_glp1_bmi_v01_18937";
 run;
 
+data min.bs_glp1_bmi_index_16844_v01;
+	set min.bs_glp1_bmi_v01_18937;
+ 	if temporality ne 1;
+run;
 
-
+proc means data=min.bs_glp1_bmi_index_16844_v01
+	n nmiss mean std min max median p25 p75;
+ 	var bmi_index;
+  	title "distribution of bmi_index";
+run;
 
 /* p-value */
-proc ttest data=min.bs_glp1_user_38384_v00;
+proc ttest data=min.bs_glp1_bmi_index_16844_v01;
    class temporality;
    var bmi_index;
-   ods output TTests=ttest_results;
 run;
-data ttest_pvalue;
-    set ttest_results;
-    where Method = "Pooled";
-    pvalue_age = ProbT;
-    keep pvalue_age;
-run;
-proc print data=ttest_pvalue;
-run;
-
 
 
 
