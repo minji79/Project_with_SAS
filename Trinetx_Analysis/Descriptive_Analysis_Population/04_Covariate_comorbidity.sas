@@ -214,7 +214,7 @@ run;
 	STEP 2. Remain comorbidity diagnosed within 1 yr before the surgery
 ************************************************************************************/
 
-* 2.1. convert the format of date;
+* 2.1. convert the format of the date;
 
 data min.bs_user_comorbidity_v02;
 	set min.bs_user_comorbidity_v02;
