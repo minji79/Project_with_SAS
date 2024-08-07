@@ -561,8 +561,98 @@ proc ttest data=min.bs_glp1_bmi_index_16844_v01;
 run;
 
 
+* 3.11. BMI various values;
+/*
+variables' name
+bmi_1y_bf | BMI 1 year before the BS date
+bmi_6m_bf | BMI 6 months before the BS date
+bmi_1y_af | BMI 1 year after the BS date
+bmi_2y_af | BMI 2 years after the BS date
+bmi_3y_af | BMI 3 years after the BS date
+*/
 
+/* bmi_1y_bf */
+proc ttest data=min.bs_glp1_bmi_1y_bf_v02;
+   class temporality;
+   var bmi;
+run;
 
+/* bmi_6m_bf */
+proc ttest data=min.bs_glp1_bmi_6m_bf_v02;
+   class temporality;
+   var bmi;
+run;
 
+/* bmi_1y_af */
+proc ttest data=min.bs_glp1_bmi_1y_af_v02;
+   class temporality;
+   var bmi;
+run;
+
+/* bmi_2y_af */
+proc ttest data=min.bs_glp1_bmi_2y_af_v02;
+   class temporality;
+   var bmi;
+run;
+
+/* bmi_3y_af */
+proc ttest data=min.bs_glp1_bmi_3y_af_v02;
+   class temporality;
+   var bmi;
+run;
+
+* 3.12. comorbidities - proportional data;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_t2db / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_obs / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_htn / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_dyslip / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_osa / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_cad / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_hf / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_af / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_liver / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_asthma / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_ckd / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_pos / chisq;
+run;
+
+proc freq data=min.bs_user_comorbidity_v03;
+    tables temporality * cc_gerd / chisq;
+run;
 
 
