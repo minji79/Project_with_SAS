@@ -33,7 +33,7 @@ proc sql;
     from min.bs_glp1_user_38384_v00 as a 
     left join tx.procedure as b
     on a.patient_id = b.patient_id;
-quit;
+quit;   /* 15970478 obs */
 
 proc print data=min.bs_user_sdoh_v00 (obs=30); 
   title "min.bs_user_sdoh_v00";
@@ -47,28 +47,26 @@ run;
 **************************************************/
 
 /*
-sdoh_total | Z55-Z65 | Persons with potential health hazards related to socioeconomic and psychosocial circumstances
+Persons with potential health hazards related to socioeconomic and psychosocial circumstances
 sdoh_edu | Z55 | Problems related to education and literacy
 sdoh_employ | Z56 | Problems related to employment and unemployment
 sdoh_economic | Z59 | Problems related to housing and economic circumstances
 */
 
-proc print data = min.bs_user_sdoh_v00 (obs = 30);
+proc print data = tx.procedure (obs = 30);
   where code = "Z55-Z65";
-run;
+run;   /* it doesn't exist */
 
 
 data min.bs_user_sdoh_v01;
     set min.bs_user_sdoh_v00;
-    format sdoh_total sdoh_edu sdoh_employ sdoh_economic 8.;
+    format sdoh_edu sdoh_employ sdoh_economic 8.;
     
-        sdoh_total = 0;
         sdoh_edu =0;
         sdoh_employ =0;
         sdoh_economic =0;
 
-    if code = "Z55-Z65" then sdoh_total =1;
-    else if code = "Z55" then sdoh_edu =1;
+    if code = "Z55" then sdoh_edu =1;
     else if code = "Z56" then sdoh_employ =1;
     else if code = "Z59" then sdoh_economic =1;
 run;
