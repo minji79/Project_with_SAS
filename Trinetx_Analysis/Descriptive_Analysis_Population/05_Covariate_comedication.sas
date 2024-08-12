@@ -16,14 +16,34 @@
 	STEP 1. Create Comedication lists using the ICD_10_CT and ICD_9_CT codes
 ************************************************************************************/
 
-* 1.1. explore procedure dataset + list up all of the value of code_system;
+* 1.1. metformin users;
+/**************************************************
+* new table: min.metformin_users_v00
+* original table: tx.medication_ingredient;
+* description: list up metformin_users from original dataset
+**************************************************/
 
-proc print data=tx.diagnosis (obs=40);
-    title "tx.diagnosis";
-run;                      
-proc contents data=tx.diagnosis;
-    title "tx.diagnosis";
-run;        
+data min.metformin_users_v00;
+	set tx.medication_ingredient;
+ 	if code = "6809" then output;
+run;
+
+proc sql;
+    create table min.bs_user_metformin_v00 as 
+    select a.patient_id, a.bs_date, 
+           b.*  /* Select all columns from table b */
+    from min.bs_glp1_user_38384_v00 as a 
+    left join min.metformin_users_v00 as b
+    on a.patient_id = b.patient_id;
+quit;
+
+data min.bs_user_metformin_v01;
+	set min.bs_user_metformin_v00;
+ 	format cm_metformin 8.;
+  		cm_metformin =0;
+    	if 
+  	if 
+
 
 /**************************************************
 * new table: min.bs_user_comedi_v00
