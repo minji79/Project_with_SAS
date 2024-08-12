@@ -35,8 +35,25 @@ proc sql;
     on a.patient_id = b.patient_id;
 quit;   /* 15970478 obs */
 
-proc print data=min.bs_user_sdoh_v00 (obs=30); 
-  title "min.bs_user_sdoh_v00";
+
+data min.bs_user_sdoh_v01;
+	set tx.diagnosis;
+ 	if code in ("Z55", "Z56", "Z59");
+run;    /* 62 obs */
+  
+
+proc sql;
+    create table min.bs_user_sdoh_v02 as 
+    select a.patient_id, 
+           b.*  
+    from min.bs_glp1_user_38384_v00 as a 
+    left join min.bs_user_sdoh_v01 as b
+    on a.patient_id = b.patient_id;
+quit;
+
+proc freq data= min.bs_user_sdoh_v02;
+  table code;
+  title "min.bs_user_sdoh_v02";
 run;
 
 * 1.2. list up all SDOH;
@@ -54,7 +71,7 @@ sdoh_economic | Z59 | Problems related to housing and economic circumstances
 */
 
 proc print data = tx.procedure (obs = 30);
-  where code = "Z55-Z65";
+  where code = "Z55";
 run;   /* it doesn't exist */
 
 
@@ -71,6 +88,13 @@ data min.bs_user_sdoh_v01;
     else if code = "Z59" then sdoh_economic =1;
 run;
 
+proc print data=min.bs_user_sdoh_v01(obs=30);
+	title "min.bs_user_sdoh_v01";
+run;
+
+proc freq data=min.bs_user_sdoh_v01; 
+	tables sdoh_edu sdoh_employ sdoh_economic / list;
+ run;
 
 * 1.3. add patient's bs_date and temporality;
 /**************************************************
