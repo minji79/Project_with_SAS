@@ -59,7 +59,7 @@ proc means data=min.bs_glp1_user_v03
 run;
 
 proc means data=min.bs_glp1_user_v03
-	n mean median min max std ;
+	n mean median min max std p25 p75;
 	var glp1_after_bs;
 	title "glp1_after_bs";
 run;
