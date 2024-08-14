@@ -25,8 +25,8 @@
 
 data min.metformin_users_v00;
 	set tx.medication_ingredient;
- 	if code = "6809" then output;
-run;
+ 	if code = "6809";
+run;           /* 69038531 obs */
 
 proc sql;
     create table min.bs_user_metformin_v00 as 
@@ -43,6 +43,57 @@ data min.bs_user_metformin_v01;
   		cm_metformin =0;
     	if 
   	if 
+
+
+
+* 1.2. dpp4 users;
+/**************************************************
+* new table: min.dpp4_users_v00
+* original table: tx.medication_ingredient
+* description: list up dpp4_users from original dataset
+**************************************************/
+
+data min.dpp4_users_v00;
+	set tx.medication_ingredient;
+ 	if code in ('593411', '1100699', '857974', '1368001', '1992825', '729717', '1598392', '1243019', '2281864', '1727500', '1043562', '2117292', '1368402', '1368384');
+run;      /* 24156249 obs */
+
+
+
+
+
+
+* 1.3. sglt2 users;
+/**************************************************
+* new table: min.sglt2_users_v00
+* original table: tx.medication_ingredient
+* description: list up sglt2_users from original dataset
+**************************************************/
+
+data min.sglt2_users_v00;
+	set tx.medication_ingredient;
+ 	if code in ('1545653', '1373458', '1488564', '1992672', '2627044', '2638675', '1664314', '1545149', '1486436', '1992684');
+run;      /*  obs */
+
+
+
+
+
+* 1.4. sulfonylureas users;
+/**************************************************
+* new table: min.sulfonylureas_users_v00
+* original table: tx.medication_ingredient
+* description: list up sulfonylureas_users from original dataset
+**************************************************/
+
+data min.sulfonylureas_users_v00;
+	set tx.medication_ingredient;
+ 	if code in ('4821','25789','4815','4816','352381','647235','606253','285129');
+run;      /*  obs */
+
+
+
+
 
 
 /**************************************************
