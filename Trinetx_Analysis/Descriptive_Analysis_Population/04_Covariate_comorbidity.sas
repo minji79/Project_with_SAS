@@ -5,8 +5,10 @@
 | Date (update): August 2024
 | Task Purpose : 
 |      1. Create Comorbidity lists using the ICD_10_CT and ICD_9_CT codes
-|      2. 
-|      3. Remain distinct observation by one patients with comorbidity information
+|      2. Remain comorbidity diagnosed within 1 yr before the surgery
+|      3. Calculate the distribution of each diseases comorbidities
+|      4. 
+|      5. CCI
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.diagnosis
 | Final dataset: 
 ************************************************************************************/
@@ -252,7 +254,7 @@ run;
 
 
 /************************************************************************************
-	STEP 3. calculate the distribution of each diseases comorbidities
+	STEP 3. Calculate the distribution of each diseases comorbidities
 ************************************************************************************/
 
 * 3.1. type 2 diabetes;
@@ -554,10 +556,52 @@ proc freq data=min.bs_user_comorbidity_gerd;
  	title "Gastroesophageal reflux disease among 38384";
 run;
 
+/************************************************************************************
+	STEP 4. Prevalence of type 2 diabetes diagnosed at the glp1 initiation 
+************************************************************************************/
+
+* 4.1. Remain diabetes diagnosed at the glp1 initiation;
+/**************************************************
+* new table: min.bs_user_comorbidity_t2db_glp1
+* original table: min.bs_user_comorbidity_v02
+* description: Remain type 2 diabetes diagnosed at the glp1 initiation 
+**************************************************/
+
+
+proc contents data=min.bs_user_comorbidity_v02;
+run;
+
+data min.bs_user_comorbidity_v03;
+   set min.bs_user_comorbidity_v02;
+   if bs_date - como_date ge 0 and bs_date - como_date le 365;
+run;      /* 5732150 obs */
+
+proc sql;
+  create table distinct_patient_count as 
+  select count(distinct patient_id) as num_patients
+  from min.bs_user_comorbidity_v03;
+quit;
+proc print data=distinct_patient_count;
+run;   /* 37892 distinct patients have comorbidities */
+
+proc sort data=min.bs_user_comorbidity_v03;
+	by patient_id;
+run;
+
+
+
+
+
+
+
+
+
+
+
 
 
 /************************************************************************************
-	STEP 4. CCI - 
+	STEP 5. CCI - 
 ************************************************************************************/
 
 
