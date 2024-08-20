@@ -1,28 +1,18 @@
 
 
-
-/************************************************************************************
-| Project name : Thesis - BS and GLP1
-| Program name : 05_Covariate_ccomedication
-| Date (update): July 2024
-| Task Purpose : 
-|      1. Create Comedication lists using the ICD_10_CT and ICD_9_CT codes
-|      2. 
-|      3. Remain distinct observation by one patients with comorbidity information
-| Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient
-| Final dataset: 
-************************************************************************************/
+cm_metformin
+cm_dpp4
+cm_sglt2
+cm_su
+cm_thiaz
+cm_insul
+cm_depres
+cm_psycho
+cm_convul
+cm_ob
 
 
-/************************************************************************************
-	STEP 1. Create Comedication lists using the ICD_10_CT and ICD_9_CT codes
-************************************************************************************/
-
-* 1.1. metformin users;
-/**************************************************
-* new table: min.metformin_users_v00
-* original table: tx.medication_ingredient;
-* description: list up metformin_users from original dataset
+ginal dataset
 **************************************************/
 
 /* the total users among TRINETX dataset */
