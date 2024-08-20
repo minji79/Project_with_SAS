@@ -895,96 +895,107 @@ cm_convul = 0 | 23956
 
 * 1.10. anti-obesity medication users;
 /**************************************************
-* new table: min.antiobes_users_v00
+* new table: min.anti_ob_users_v00
 * original table: tx.medication_ingredient
 * description: list up Antipsychotics  users from original dataset
 **************************************************/
 
-data min.antiobes_users_v00;
-	set tx.medication_ingredient;
- 	if code in ("7243", "1551467", "37925", "8152", "1302826", "2469247");
-run;      /*  obs */
+data min.anti_ob_users_v00;
+  set tx.medication_ingredient;
+  format comedi_antiob 8. comedi_antiob_type $32. comedi_antiob_start_date yymmdd10.;
+  where code in ("7243", "1551467", "37925", "8152", "1302826", "2469247");
+  if code = "7243" then comedi_antiob_type = "naltrexone";
+  else if code = "1551467" then comedi_antiob_type = "naltrexone/bupropion";
+  else if code = "37925" then comedi_antiob_type = "orlistat";
+  else if code = "8152" then comedi_antiob_type = "phentermine";
+  else if code = "1302826" then comedi_antiob_type = "phentermine/topiramate";
+  else if code = "2469247" then comedi_antiob_type = "setmelanotide";
+  comedi_antiob = 1;
+  comedi_antiob_start_date = input(start_date, yymmdd8.);
+  drop start_date;
+run;        /* 3913651 obs */
 
 /* matching with our study population */
 proc sql;
-    create table min.antiobes_users_v01 as 
+    create table min.anti_ob_users_v01 as 
     select a.patient_id, a.bs_date, 
            b.*  /* Select all columns from table b */
     from min.bs_glp1_user_38384_v00 as a
-    left join min.antiobes_users_v00 as b
+    left join min.anti_ob_users_v00 as b
     on a.patient_id = b.patient_id;
-quit;       /* obs */
+quit;       /* 97517 obs */
 
-data min.antiobes_users_v01;
-	set min.antiobes_users_v00;
+
+data min.anti_ob_users_v01;
+	set min.anti_ob_users_v01;
  	date_num = input(start_date, yymmdd8.);
   	format date_num yymmdd10.;
-  	rename date_num = cm_obes_date;
+  	rename comedi_antiob_start_date = cm_ob_date;
 run;  
 
 /* Remain co-medication within 1 yr before the surgery */
 /**************************************************
-* new table: min.antiobes_users_v02
-* original table: min.antiobes_users_v01
+* new table: min.anti_ob_users_v02
+* original table: min.anti_ob_users_v01
 * description: list up users within inclusion time window
 **************************************************/
 
-data min.antiobes_users_v02;
-   set min.antiobes_users_v01;
-   format cm_obes 8.;
-   if bs_date - cm_obes_date ge 0 and bs_date - cm_obes_date le 365;
-   if not missing(cm_obes_date) then cm_obes = 1;
+data min.anti_ob_users_v02;
+   set min.anti_ob_users_v01;
+   format cm_ob 8.;
+   if bs_date - cm_ob_date ge 0 and bs_date - cm_ob_date le 365;
+   if not missing(cm_ob_date) then cm_ob = 1;
    drop unique_id;
-run;       /*  obs */
+run;       /* 9662 obs */
 
 /* Remain unique patients */
 /**************************************************
-* new table: min.antiobes_users_v03
-* original table: min.antiobes_users_v02
+* new table: min.anti_ob_users_v03
+* original table: min.anti_ob_users_v02;
 * description: Remain unique patients of users within inclusion time window
 **************************************************/
 
-proc sort data=min.antiobes_users_v02;
-	by patient_id cm_obes_date;
+proc sort data=min.anti_ob_users_v02;
+	by patient_id cm_ob_date;
 run;
 
-data min.antiobes_users_v03;
-	set min.antiobes_users_v02;
+data min.anti_ob_users_v03;
+	set min.anti_ob_users_v02;
  	by patient_id;
   	if first.patient_id;
-run;      /* obs */
+run;      /* 1642 obs */
 
 /* merge with the total 38384 dataset */
 /**************************************************
-* new table: min.bs_user_comedication_v09
+* new table: min.bs_user_comedication_v10
 * original table: min.antiobes_users_v03
 * description: merge into one dataset
 **************************************************/
 
 proc sql;
-    create table min.bs_user_comedication_v09 as 
+    create table min.bs_user_comedication_v10 as 
     select a.*, /* Select all columns from table a */
-           b.cm_convul, b.cm_obes_date 
+           b.cm_ob, b.cm_ob_date 
     from min.bs_user_comedication_v00 as a 
-    left join min.antiobes_users_v03 as b
+    left join min.anti_ob_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
 
-data min.bs_user_comedication_v09;
-	set min.bs_user_comedication_v09;
- 	if missing(cm_obes) then cm_obes = 0;
+data min.bs_user_comedication_v10;
+	set min.bs_user_comedication_v10;
+ 	if missing(cm_ob) then cm_ob = 0;
 run;
 
 
 /* calculate prevalence */
-proc freq data=min.bs_user_comedication_v09;
-	table cm_obes;
+proc freq data=min.bs_user_comedication_v10;
+	table cm_ob;
 run;
 
 /*
 among 38384, 
-cm_obes = 1 | 00 (37.59%)
-cm_obes = 0 | 23956
+cm_ob = 1 | 1642 (4.28%)
+cm_ob = 0 | 36742
 */
 
 
@@ -1080,20 +1091,7 @@ run;
 
 
 
-data min.anti_ob_users_v00;
-  set tx.medication_ingredient;
-  format comedi_antiob 8. comedi_antiob_type $32. comedi_antiob_start_date yymmdd10.;
-  where code in ("7243", "1551467", "37925", "8152", "1302826", "2469247");
-  if code = "7243" then comedi_antiob_type = "naltrexone";
-  else if code = "1551467" then comedi_antiob_type = "naltrexone/bupropion";
-  else if code = "37925" then comedi_antiob_type = "orlistat";
-  else if code = "8152" then comedi_antiob_type = "phentermine";
-  else if code = "1302826" then comedi_antiob_type = "phentermine/topiramate";
-  else if code = "2469247" then comedi_antiob_type = "setmelanotide";
-  comedi_antiob = 1;
-  comedi_antiob_start_date = input(start_date, yymmdd8.);
-  drop start_date;
-run;  
+
 
 
 
