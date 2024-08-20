@@ -5,8 +5,8 @@
 | Date (update): July 2024
 | Task Purpose : 
 |      1. Create Comedication lists using the ICD_10_CT and ICD_9_CT codes
-|      2. 
-|      3. Remain distinct observation by one patients with comorbidity information
+|      2. subgroup analysis
+|      3. 00
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient
 | Final dataset: 
 ************************************************************************************/
@@ -294,7 +294,7 @@ proc sql;
     create table min.bs_user_comedication_v02 as 
     select a.*, /* Select all columns from table a */
            b.cm_sglt2, b.cm_sglt2_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v01 as a 
     left join min.sglt2_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -391,7 +391,7 @@ proc sql;
     create table min.bs_user_comedication_v03 as 
     select a.*, /* Select all columns from table a */
            b.cm_su, b.cm_su_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v02 as a 
     left join min.sulfonylureas_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -486,7 +486,7 @@ proc sql;
     create table min.bs_user_comedication_v04 as 
     select a.*, /* Select all columns from table a */
            b.cm_thiaz, b.cm_thiaz_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v03 as a 
     left join min.thiazo_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -581,7 +581,7 @@ proc sql;
     create table min.bs_user_comedication_v05 as 
     select a.*, /* Select all columns from table a */
            b.cm_insul, b.cm_insul_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v04 as a 
     left join min.insulin_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -676,7 +676,7 @@ proc sql;
     create table min.bs_user_comedication_v06 as 
     select a.*, /* Select all columns from table a */
            b.cm_depres, b.cm_depres_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v05 as a 
     left join min.antidepressant_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -773,7 +773,7 @@ proc sql;
     create table min.bs_user_comedication_v07 as 
     select a.*, /* Select all columns from table a */
            b.cm_psycho, b.cm_psycho_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v06 as a 
     left join min.antipsychotics_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -869,7 +869,7 @@ proc sql;
     create table min.bs_user_comedication_v08 as 
     select a.*, /* Select all columns from table a */
            b.cm_convul, b.cm_convul_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v07 as a 
     left join min.anticonvulsants_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
@@ -967,28 +967,28 @@ run;      /* 1642 obs */
 
 /* merge with the total 38384 dataset */
 /**************************************************
-* new table: min.bs_user_comedication_v10
+* new table: min.bs_user_comedication_v09
 * original table: min.antiobes_users_v03
 * description: merge into one dataset
 **************************************************/
 
 proc sql;
-    create table min.bs_user_comedication_v10 as 
+    create table min.bs_user_comedication_v09 as 
     select a.*, /* Select all columns from table a */
            b.cm_ob, b.cm_ob_date 
-    from min.bs_user_comedication_v00 as a 
+    from min.bs_user_comedication_v08 as a 
     left join min.anti_ob_users_v03 as b
     on a.patient_id = b.patient_id;
 quit;   /* 38384 obs */
 
-data min.bs_user_comedication_v10;
-	set min.bs_user_comedication_v10;
+data min.bs_user_comedication_v09;
+	set min.bs_user_comedication_v09;
  	if missing(cm_ob) then cm_ob = 0;
 run;
 
 
 /* calculate prevalence */
-proc freq data=min.bs_user_comedication_v10;
+proc freq data=min.bs_user_comedication_v09;
 	table cm_ob;
 run;
 
@@ -1000,16 +1000,80 @@ cm_ob = 0 | 36742
 
 
 
+/************************************************************************************
+	STEP2. Subgroup analysis
+************************************************************************************/
+
+proc sort data=min.bs_user_comedication_v09;
+	by temporality;
+run;
+
+/*
+cm_metformin
+cm_dpp4
+cm_sglt2
+cm_su
+cm_thiaz
+cm_insul
+cm_depres
+cm_psycho
+cm_convul
+cm_ob
+*/
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_metformin;
+ 	title "cm_metformin";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_dpp4;
+ 	title "cm_dpp4";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_sglt2;
+ 	title "cm_sglt2";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_su;
+ 	title "cm_su";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_thiaz;
+ 	title "cm_thiaz";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_insul;
+ 	title "cm_insul";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_depres;
+ 	title "cm_depres";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_psycho;
+ 	title "cm_psycho";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_convul;
+ 	title "cm_convul";
+run;
+
+proc freq data=min.bs_user_comedication_v09;
+	tables temporality*cm_ob;
+ 	title "cm_ob";
+run;
 
 
 
-
-
-
-
-
-
-
+/**************************************************/**************************************************/**************************************************/
 
 /**************************************************
 * new table: min.bs_user_comedi_v00
@@ -1041,18 +1105,6 @@ cm_ob = 0 | 36742
 
 
 /* cm_lithium */
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 proc sql;
