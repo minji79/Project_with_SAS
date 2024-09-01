@@ -1,10 +1,22 @@
 
+/************************************************************************************
+| Project name : Thesis - BS and GLP1
+| Program name : Figures
+| Date (update): June 2024
+| Task Purpose : 
+|      1. Analysis of glp1 initiation among 38384
+|      2. 
+|      3. 
+|      4. 
+|      5. 
+| Main dataset : (1) procedure, (2) tx.patient, (3) tx.patient_cohort & tx.genomic (but not merged)
+| Final dataset : min.bs_user_all_v07 (with distinct indiv)
+************************************************************************************/
 
 
 /************************************************************************************
 	STEP 1. Analysis of glp1 initiation among 38384
 ************************************************************************************/
-
 
 * 1.1. categorize ;
 /**************************************************
@@ -185,15 +197,17 @@ run;
 
 
 /************************************************************************************
-	STEP 3. Analysis of glp1 initiation by bs type
+	STEP 3. Analysis of glp1 initiation by bs type - efigure
 ************************************************************************************/
 
+/* 1. Frequency Distribution of GLP-1 initiators by BS types */
 proc freq data=min.bs_glp1_user_38384_v01;
     tables bs_type*time_to_init_cat / out=min.bs_glp1_user_38384_v01_hist;
     title "Number of GLP-1 initiators by BS types";
 run;
 
-/* cumulative bar graph */
+
+/* cumulative bar graph - stratified by BS type */
 proc sgplot data=min.bs_glp1_user_38384_v01_hist;
     vbar time_to_init_cat / response=Count group=bs_type;
     xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 15 by 1)
@@ -220,18 +234,44 @@ proc sgplot data=min.bs_glp1_user_38384_v01_hist;
 run;
 
 
+/**************************
+	figure 3 
+**************************/
+/* bar graph with table with number */
+proc sgplot data=min.bs_glp1_user_38384_v01_hist;
+    vbar time_to_init_cat / response=Count;
+    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 15 by 1)
+           valueattrs=(weight=bold size=10) /* Adjust label style */
+           valuesdisplay=(
+               '6' 
+               '12'
+               '18'
+               '24'
+               '30'
+               '36'
+               '42'
+               '48'
+               '54'
+               '60'
+               '66'
+               '72'
+               '78'
+               '84'
+               '84+'
+           );
+    yaxis label="Individuals initiating GLP-1 after surgery, count";
+    title "Number of GLP-1 initiators overtime";
+    xaxistable count / x=count class=bs_type ;
+run;
+
+
+
 /************************************************************************************
 	STEP 4. Analysis of glp1 initiation by glp1 types
 ************************************************************************************/
 
 * 4.1. frequency distribution of gap_glp1_bs_cat by glp1 types;
 
-/* print purpose */
-proc freq data=min.bs_glp1_user_38384_v01;
-    tables glp1_type_cat*time_to_init_cat;
-run;
-
-/* plotting purpose */
 proc freq data=min.bs_glp1_user_38384_v01 noprint;
     tables Molecule*time_to_init_cat / out=min.bs_glp1_user_38384_v01_pct2;
 run;
@@ -247,8 +287,20 @@ proc sql;
     group by time_to_init_cat;
 quit;
 
+
+/**************************
+	figure 5-1 
+ 
+ * excl. exenatide, lixi, missing
+ * added table with number under the graph
+ * with 'time-to-event' xaxis
+ 
+**************************/
+
+
 /* line graph */
 proc sgplot data=min.bs_glp1_user_38384_linegraph2;
+	where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide'); /* Filter for specific Molecule values */
     scatter x=time_to_init_cat y=col_pct / group=Molecule
                                            markerattrs=(symbol=circlefilled size=7)  /* Customize marker appearance */
                                            datalabel=col_pct datalabelattrs=(size=8); /* Add data labels */
@@ -276,6 +328,7 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph2;
 
     yaxis label="Individuals initiating GLP-1 after surgery, percentage (%)" values=(0 to 80 by 10);
     title "Time to GLP-1 Initiation by GLP-1 Type";
+    xaxistable count / x=count class=Molecule ;
 run;
 
 
@@ -304,3 +357,16 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph2;
     yaxis label="Individuals initiating GLP-1 after surgery, count";
     title "Number of GLP-1 initiators overtime by GLP-1 types";
 run;
+
+
+
+
+
+
+
+
+
+
+
+
+
