@@ -289,17 +289,49 @@ quit;
 
 
 /**************************
-	figure 5-1 
+	figure 5-1
  
+ * xaxis:'time-to-event' 
  * excl. exenatide, lixi, missing
  * added table with number under the graph
- * with 'time-to-event' xaxis
  
 **************************/
 
+proc print data=min.bs_glp1_user_38384_linegraph2 (obs=30);
+run;
+
+/* add 'total' colunm by time_to_ini_cat */
+/**************************************************
+* new dataset: min.bs_glp1_user_38384_linegraph4
+* original dataset: min.bs_glp1_user_38384_linegraph2
+* description: add 'total' colunm by time_to_ini_cat
+**************************************************/
+
+data min.bs_glp1_user_38384_linegraph3;
+    set min.bs_glp1_user_38384_linegraph2;
+    format total 8.;
+
+    /* Calculate total count for each time_to_init_cat */
+    by time_to_init_cat;
+    if first.time_to_init_cat then total = 0; 
+    total + count; 
+
+    /* Output only the last record for each time_to_init_cat */
+    if last.time_to_init_cat then output; 
+run;
+
+/* merge */
+data min.bs_glp1_user_38384_linegraph4;
+    merge min.bs_glp1_user_38384_linegraph2 (in=indata)
+          min.bs_glp1_user_38384_linegraph3 (in=totaldata keep=time_to_init_cat total);
+    by time_to_init_cat;
+run;
+proc print data=min.bs_glp1_user_38384_linegraph4 (obs=30);
+run;
+
 
 /* line graph */
-proc sgplot data=min.bs_glp1_user_38384_linegraph2;
+proc sgplot data=min.bs_glp1_user_38384_linegraph4;
 	where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide'); /* Filter for specific Molecule values */
     scatter x=time_to_init_cat y=col_pct / group=Molecule
                                            markerattrs=(symbol=circlefilled size=7)  /* Customize marker appearance */
@@ -328,41 +360,109 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph2;
 
     yaxis label="Individuals initiating GLP-1 after surgery, percentage (%)" values=(0 to 80 by 10);
     title "Time to GLP-1 Initiation by GLP-1 Type";
-    xaxistable count / x=count class=Molecule ;
+    xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
+    xaxistable total;
 run;
 
 
-/* cumulative bar graph */
-proc sgplot data=min.bs_glp1_user_38384_linegraph2;
-    vbar time_to_init_cat / response=Count group=Molecule;
-    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 15 by 1)
+/**************************
+	figure 5-2
+ 
+ * xaxis:'calender year' 
+ * excl. exenatide, lixi, missing
+ * added table with number under the graph
+ 
+**************************/
+
+/**************************************************
+* new dataset: min.bs_glp1_user_38384_v02
+* original dataset: min.bs_glp1_user_38384_v00
+* description: add 'total' colunm by time_to_ini_cat
+**************************************************/
+
+proc print data=min.bs_glp1_user_38384_v00 (obs=30);
+	where glp1_user =1;
+run;
+
+data min.bs_glp1_user_38384_v02;
+	set min.bs_glp1_user_38384_v00;
+ 	format glp1_init_year 4.;
+	glp1_init_year = year(glp1_initiation_date);
+run;
+proc print data=min.bs_glp1_user_38384_v02 (obs=30);
+	var patient_id glp1_initiation_date glp1_init_year ;
+	where glp1_user =1;
+run;
+
+
+/* plotting purpose */
+proc freq data=min.bs_glp1_user_38384_v02 noprint;
+    tables Molecule*glp1_init_year / out=min.bs_glp1_user_38384_v02_pct;
+run;
+
+proc sql;
+    create table min.bs_glp1_user_38384_linegraph5 as
+    select Molecule,
+           glp1_init_year,
+           count, 
+           percent, 
+           100 * count / sum(count) as col_pct  /* Calculate column percentage within time_to_init_cat */
+    from min.bs_glp1_user_38384_v02_pct
+    group by glp1_init_year;
+quit;
+proc print data=min.bs_glp1_user_38384_linegraph5 (obs=30);
+	title "min.bs_glp1_user_38384_linegraph5";
+run;
+
+
+
+/* add 'total' colunm by time_to_ini_cat */
+/**************************************************
+* new dataset: min.bs_glp1_user_38384_linegraph7
+* original dataset: min.bs_glp1_user_38384_linegraph5
+* description: add 'total' colunm by time_to_ini_cat
+**************************************************/
+
+data min.bs_glp1_user_38384_linegraph6;
+    set min.bs_glp1_user_38384_linegraph5;
+    format total 8.;
+
+    /* Calculate total count for each time_to_init_cat */
+    by glp1_init_year;
+    if first.glp1_init_year then total = 0; 
+    total + count; 
+
+    /* Output only the last record for each time_to_init_cat */
+    if last.glp1_init_year then output; 
+run;
+
+/* merge */
+data min.bs_glp1_user_38384_linegraph7;
+    merge min.bs_glp1_user_38384_linegraph5 (in=indata)
+          min.bs_glp1_user_38384_linegraph6 (in=totaldata keep=glp1_init_year total);
+    by glp1_init_year;
+run;
+proc print data=min.bs_glp1_user_38384_linegraph7 (obs=30);
+run;
+
+
+/* line graph */
+proc sgplot data=min.bs_glp1_user_38384_linegraph7;
+	where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide'); /* Filter for specific Molecule values */
+    scatter x=glp1_init_year y=col_pct / group=Molecule
+                                           markerattrs=(symbol=circlefilled size=7)  /* Customize marker appearance */
+                                           datalabel=col_pct datalabelattrs=(size=8); /* Add data labels */
+    series x=glp1_init_year y=col_pct / group=Molecule lineattrs=(thickness=2);
+
+    xaxis label="Calender Year" 
            valueattrs=(weight=bold size=10) /* Adjust label style */
-           valuesdisplay=(
-               '6' 
-               '12'
-               '18'
-               '24'
-               '30'
-               '36'
-               '42'
-               '48'
-               '54'
-               '60'
-               '66'
-               '72'
-               '78'
-               '84'
-               '84+'
-           );
-    yaxis label="Individuals initiating GLP-1 after surgery, count";
-    title "Number of GLP-1 initiators overtime by GLP-1 types";
+           ;
+
+    yaxis label="Individuals initiating GLP-1 after surgery, percentage (%)" values=(0 to 80 by 10);
+    title "GLP-1 Initiation Year by GLP-1 Type";
+    xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
+    xaxistable total;
 run;
-
-
-
-
-
-
 
 
 
