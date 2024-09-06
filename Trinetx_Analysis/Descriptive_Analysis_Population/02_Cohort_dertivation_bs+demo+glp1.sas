@@ -9,6 +9,8 @@
 |      3. Indicate the timing of glp1 use compared with the bs_date
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
 | Final dataset : min.bs_glp1_user_v03 (with duplicated indiv)
+		  min.bs_glp1_user_38384_v00;
+
 ************************************************************************************/
 
 
