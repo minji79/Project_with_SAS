@@ -119,7 +119,7 @@ proc print data=min.time_to_glp1_v02 (obs=30);
 run;
 
 
-* 3.3 switching to other types of anti-obesity medications;
+* 3.3 switching to other types of anti-obesity medications - excluded from the censoring cases;
 
 /* select anti-obesity medication users among the total population */
 /**************************************************
@@ -223,7 +223,7 @@ quit;    /* 38384 obs (with 2153 distinct patients who switched to AOM 'after BS
 
 
 
-* 3.4. lost to follow-up;
+* 3.4. lost to follow-up - excluded from the censoring cases;
 /**************************************************
 * new dataset: min.time_to_glp1_v04
 * original dataset: min.time_to_glp1_v03
