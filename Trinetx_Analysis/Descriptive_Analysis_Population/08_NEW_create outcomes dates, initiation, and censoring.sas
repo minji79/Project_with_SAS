@@ -7,7 +7,6 @@
 |      2. Generate study entry variable to account for the late entry - we don't have late entry based on study design
 |      3. Generate study exit variable - (1) event | glp1_initation, (2) censor_date | censoring scenario
 |         Generate variable for the event status : event = 1, censoring = 0 
-|      4. Generate "person-time" variable (with init_glp1)
 | Main dataset : 
 | Final dataset : min.time_to_glp1_v06
 ************************************************************************************/
@@ -21,8 +20,8 @@
 * 	init_glp1_event | 0 = censored, 1 = event
 * 	init_glp1_date | the first GLP-1 initiation date
 *   censoring
-* 	0) censor_date
-* 	0) censor_type
+* 	0) exit_date
+* 	0) exit_type
 *   	1) death_date | competing risk 1 - death 
 *   	4) study_end_date | administrative censoring (2023.12.31)
 **************************************************/
@@ -178,30 +177,6 @@ proc means data=min.time_to_glp1_v03 n nmiss;
 	var exit_type_cat;
  	by exit_type_cat;
   	title "Summary Statistics by Censoring Type";
-run;
-
-/************************************************************************************
-	STEP 4. Generate "person-time" variable
-************************************************************************************/
-
-* 4.1. Generate "person-time" variable ;
-/**************************************************
-* new dataset: min.time_to_glp1_v04
-* original dataset: min.time_to_glp1_v03
-* description: "person-time" = person-time contribution from study entry to exit
-**************************************************/
-
-data min.time_to_glp1_v04;
-	set min.time_to_glp1_v03;
-	format person_time;
- 	person_time = exit_date - bs_date;
-run;
-
-
-
-proc means data=min.time_to_glp1_v04 n median p25 p75 min max nmiss;
-	var person_time;
- 	title "distribution of person_time";
 run;
 
 
