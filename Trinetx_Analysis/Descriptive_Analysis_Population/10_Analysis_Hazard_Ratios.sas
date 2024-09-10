@@ -1,8 +1,8 @@
 
 /************************************************************************************
 | Project name : Thesis - BS and GLP1
-| Program name : 09_Analysis_COX_Hazard_Ratios
-| Date (update): July 2024
+| Program name : 10_Analysis_COX_Hazard_Ratios
+| Date (update): SEP 2024
 | Task Purpose : 
 |      1. model 1 | unadjusted Hazard ratio for the first GLP-1 initiation | stratified by bs_type
 |      2. model 2 | unadjusted Hazard ratio for the first GLP-1 initiation | stratified by Molecule (glp1_type_cat)
