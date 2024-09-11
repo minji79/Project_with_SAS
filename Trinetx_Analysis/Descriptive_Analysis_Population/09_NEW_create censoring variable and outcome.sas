@@ -6,8 +6,10 @@
 | Date (update): SEP 2024
 | Task Purpose : 
 |      1. Generate duration of follow-up variable | time_to_event = exit_date – entry_date(bs_date)
-|      2. 
-|      3. 
+|      2. Select covariable for stratify - bs_type & glp1_type
+|      3. Drop 113 individuals with invalid data (death date < glp1 iniatiation )
+|      4.
+|      5. 
 | Main dataset : (1) min.bs_user_all_v07, (2) tx.medication_ingredient, (3) tx.medication_drug (adding quantity_dispensed + days_supply)
 | Final dataset : min.bs_glp1_user_v03 (with duplicated indiv)
 ************************************************************************************/
@@ -136,7 +138,32 @@ run;
 
 
 /************************************************************************************
-	STEP 3. Select covariable for further adjustment
+	STEP 3. Drop 113 individuals with invalid data (death date < glp1 iniatiation )
+************************************************************************************/
+
+/**************************************************
+* new dataset: min.time_to_glp1_v06
+* original dataset: min.time_to_glp1_v05
+* description: Drop 131 individuals with invalid data (death date < glp1 iniatiation )
+**************************************************/
+
+/* how to identify 113 indiv with invalid data (death date < glp1 iniatiation ) */
+
+proc sql;
+    select count(distinct patient_id) as death_prior_glp1
+    from min.time_to_glp1_v05
+    where death_date < init_glp1_date and death_date ne .;
+quit;              /* we can find 113 indiv */
+
+
+data min.time_to_glp1_v06;
+	set min.time_to_glp1_v05;
+ 	if death_date < init_glp1_date and death_date ne . then delete;
+run;   /* 38271 obs = 38384 - 113 */
+
+
+/************************************************************************************
+	STEP 4. Select covariable for further adjustment
 ************************************************************************************/
 
 /**************************************************
