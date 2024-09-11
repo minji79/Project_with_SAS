@@ -309,12 +309,12 @@ run;
 
 data min.bs_glp1_user_38384_linegraph3;
     set min.bs_glp1_user_38384_linegraph2;
-    format total 8.;
+    format total_by_year 8.;
 
     /* Calculate total count for each time_to_init_cat */
     by time_to_init_cat;
-    if first.time_to_init_cat then total = 0; 
-    total + count; 
+    if first.time_to_init_cat then total_by_year = 0; 
+    total_by_year + count; 
 
     /* Output only the last record for each time_to_init_cat */
     if last.time_to_init_cat then output; 
@@ -323,14 +323,30 @@ run;
 /* merge */
 data min.bs_glp1_user_38384_linegraph4;
     merge min.bs_glp1_user_38384_linegraph2 (in=indata)
-          min.bs_glp1_user_38384_linegraph3 (in=totaldata keep=time_to_init_cat total);
+          min.bs_glp1_user_38384_linegraph3 (in=totaldata keep=time_to_init_cat total_by_year);
     by time_to_init_cat;
 run;
 proc print data=min.bs_glp1_user_38384_linegraph4 (obs=30);
 run;
 
+/* Calculate the total count for each 'glp1_init_year' */
+proc sql;
+    create table totals as
+    select time_to_init_cat, sum(count) as total
+    from min.bs_glp1_user_38384_linegraph4
+    where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide') 
+    group by time_to_init_cat;
+quit;
 
-/* line graph */
+/* Create a dataset for the xaxistable with the total row */
+data xaxistable_data_v01;
+    set min.bs_glp1_user_38384_linegraph4 (where=(Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide')));
+    set totals (in=in_totals);
+
+    if in_totals then Molecule = 'Total';
+run;
+
+/* line graph with xaxistable */
 proc sgplot data=min.bs_glp1_user_38384_linegraph4;
 	where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide'); /* Filter for specific Molecule values */
     scatter x=time_to_init_cat y=col_pct / group=Molecule
@@ -358,10 +374,9 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph4;
                '84+'
            );
 
-    yaxis label="Individuals initiating GLP-1 after surgery, percentage (%)" values=(0 to 80 by 10);
+    yaxis label="Percentage of GLP-1 initiation (%)" values=(0 to 80 by 10);
     title "Time to GLP-1 Initiation by GLP-1 Type";
     xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
-    xaxistable total;
 run;
 
 
@@ -458,15 +473,64 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph7;
            valueattrs=(weight=bold size=10) /* Adjust label style */
            ;
 
-    yaxis label="Individuals initiating GLP-1 after surgery, percentage (%)" values=(0 to 80 by 10);
+    yaxis label="Percentage of GLP-1 initiation (%)" values=(0 to 80 by 10);
     title "GLP-1 Initiation Year by GLP-1 Type";
     xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
-    xaxistable total;
 run;
 
 
 
+/**************************
+	figure 5-3
+ 
+ * area plot
+ * xaxis:'calender year' 
+ * excl. exenatide, lixi, missing
+ * added table with number under the graph
+ 
+**************************/
 
+/* make 'cumulative percentage' colunm by calender year */
+/**************************************************
+* new dataset: min.bs_glp1_user_38384_linegraph8
+* original dataset: min.bs_glp1_user_38384_linegraph7
+* description: make 'cumulative percentage' colunm by calender year for area plot
+**************************************************/
+
+proc print data=min.bs_glp1_user_38384_linegraph7 (obs=30);
+	title "min.bs_glp1_user_38384_linegraph7";
+run;
+
+proc sort data=min.bs_glp1_user_38384_linegraph7;
+	by glp1_init_year Molecule;
+run;
+
+data min.bs_glp1_user_38384_linegraph7;
+	set min.bs_glp1_user_38384_linegraph8;
+ 	if first.glp1_init_year then do;
+  		_upper = count;
+    		
+  	end;
+run;
+
+/* area plot */
+proc sgplot data=min.bs_glp1_user_38384_linegraph8;
+    where Molecule in ('Semaglutide', 'Dulaglutide', 'Liraglutide', 'Tirzepatide'); 
+
+    scatter x=glp1_init_year y=col_pct / group=Molecule
+                                           markerattrs=(symbol=circlefilled size=7) 
+                                           datalabel=col_pct datalabelattrs=(size=8);
+
+    area x=glp1_init_year y=col_pct / group=Molecule lineattrs=(thickness=2) transparency=0.5; /* Area graph */
+
+    xaxis label="Calender Year" 
+           valueattrs=(weight=bold size=10);
+
+    yaxis label= "Percentage of GLP-1 initiation (%)" values=(0 to 80 by 10);
+    title "GLP-1 Initiation Year by GLP-1 Type";
+    xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
+    xaxistable total;
+run;
 
 
 
