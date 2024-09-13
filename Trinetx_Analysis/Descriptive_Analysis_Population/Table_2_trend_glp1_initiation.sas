@@ -490,6 +490,87 @@ run;
  
 **************************/
 
+/* make risk set by calender year */
+
+proc print data=min.time_to_glp1_v03 (obs=30);
+run;
+
+data min.bs_glp1_user_calender_v00;
+	set min.time_to_glp1_v03;
+  	if year(bs_date) < 2016 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2016 =1;
+   	else if year(bs_date) < 2017 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2017 =1;
+    	else if year(bs_date) < 2018 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2018 =1;
+    	else if year(bs_date) < 2019 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2019 =1;
+     	else if year(bs_date) < 2020 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2020 =1;
+      	else if year(bs_date) < 2021 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2021 =1;
+       	else if year(bs_date) < 2022 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2022 =1;
+	else if year(bs_date) < 2023 <= min(year(glp1_initiation_date), year(death_date)) then pop_at_risk_2023 =1;
+run;
+
+/*
+data min.bs_glp1_user_calender_v00;
+    set min.time_to_glp1_v03;
+
+    /* Initialize all pop_at_risk variables to 0 (missing is not ideal for counts) */
+    array pop_at_risk {*} pop_at_risk_2016 - pop_at_risk_2023; 
+    do i = 1 to dim(pop_at_risk);
+        pop_at_risk[i] = 0;
+    end;
+
+    /* Calculate the year of the earlier event (GLP-1 initiation or death) */
+    exit_year = min(year(glp1_initiation_date), year(death_date)); 
+
+    /* Set pop_at_risk flags using a DO loop */
+    do year = 2016 to 2023;
+        if year(bs_date) < year <= exit_year then 
+            'pop_at_risk_' || put(year, 4.) = 1;
+    end;
+run;
+*/
+
+
+data min.bs_glp1_user_calender_v01;
+	set min.bs_glp1_user_calender_v00;
+ 
+	if year(init_glp1_date) = 2016 then n_event_2016 = 1;
+ 	else if year(init_glp1_date) = 2017 then n_event_2017 = 1;
+	else if year(init_glp1_date) = 2018 then n_event_2018 = 1;
+ 	else if year(init_glp1_date) = 2019 then n_event_2019 = 1;
+  	else if year(init_glp1_date) = 2020 then n_event_2020 = 1;
+   	else if year(init_glp1_date) = 2021 then n_event_2021 = 1;
+    	else if year(init_glp1_date) = 2022 then n_event_2022 = 1;
+     	else if year(init_glp1_date) = 2023 then n_event_2023 = 1;
+run;
+
+proc freq data=min.bs_glp1_user_calender_v01;
+	table 
+run;
+data min.bs_glp1_user_calender_v02;
+	set min.bs_glp1_user_calender_v01;
+ 	
+proc freq data=min.bs_glp1_user_38384_v02 noprint;
+    tables Molecule*glp1_init_year / out=min.bs_glp1_user_38384_v02_pct;
+run;
+
+proc sql;
+    create table min.bs_glp1_user_38384_linegraph5 as
+    select Molecule,
+           glp1_init_year,
+           count, 
+           percent, 
+           100 * count / sum(count) as col_pct  /* Calculate column percentage within time_to_init_cat */
+    from min.bs_glp1_user_38384_v02_pct
+    group by glp1_init_year;
+quit;
+proc print data=min.bs_glp1_user_38384_linegraph5 (obs=30);
+	title "min.bs_glp1_user_38384_linegraph5";
+run;
+
+
+
+
+
+
 /* make 'cumulative percentage' colunm by calender year */
 /**************************************************
 * new dataset: min.bs_glp1_user_38384_linegraph8
