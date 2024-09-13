@@ -22,24 +22,29 @@
 
 ods graphics on;
 
-proc phreg data=min.time_to_glp1_v08;
+proc phreg data=min.time_to_glp1_v06;
     class bs_type_cat / param=ref ref=first; 
 	  model time_to_exit*init_glp1_event(0) = bs_type_cat / eventcode=1 risklimits;
     assess var = (bs_type_cat) / resample;                             /* Check proportionality assumption */
-run;        /* 697 obs with invalid time (negative value) were deleted */
+run;        /* 679 obs with invalid time (negative value) were automatically dropped */
  
 
 * 1.2. KM-curve - Cumulative incidence curve;
 
-proc lifetest data=min.time_to_glp1_v08 plots=cif(test);       
+%let yOptions = label = "Survival"
+			linearopts =(viewmin=0 viewmax=0.5
+			tickvaluelist=(0 .1 .2 .3 .4 .5 .6 .7 .8 .9 1.0));
+
+
+proc lifetest data=min.time_to_glp1_v06 OUTCIF=ATRISK viewmax=0.5 plots=cif(test);       
    time time_to_exit * init_glp1_event(0)/eventcode=1;
    strata bs_type / test=logrank adjust=sidak order=internal;
-run;      /* 697 obs with invalid time (negative value) were deleted */
+run;      /* 679 obs with invalid time (negative value) were automatically dropped */
 
 
 * 1.3. KM-curve - Survival curve;
 
-proc lifetest data=min.time_to_glp1_v08 plots=survival(atrisk=0 to 2500 by 500);       
+proc lifetest data=min.time_to_glp1_v06 plots=survival(atrisk=0 to 2500 by 500);       
    time time_to_exit * init_glp1_event(0);
    strata bs_type / test=logrank adjust=sidak order=internal;
 run;    /* 697 obs with invalid time (negative value) were deleted */
