@@ -321,6 +321,15 @@ proc print data=min.bs_glp1_bmi_v01_18937 (obs=30);
  	title "min.bs_glp1_bmi_v01_18937";
 run;
 
+/* calculate 'time-to-exit' */
+proc contents data=min.bs_glp1_bmi_v01_18937;
+ 	title "min.bs_glp1_bmi_v01_18937";
+run;
+
+data min.bs_glp1_bmi_v01_18937;
+	set min.bs_glp1_bmi_v01_18937;
+	time_to_exit = glp1_initiation_date - bs_date;
+run;
 
 /*
 proc datasets library=min nolist;
@@ -392,6 +401,18 @@ proc print data=min.bs_glp1_bmi_v02_4048 (obs=30);
 	var patient_id bs_date bmi_date gap2 bmi bmi_bf_glp1;
  	title "min.bs_glp1_bmi_v02_4048";
 run;
+
+/* calculate 'time-to-exit' */
+proc contents data=min.bs_glp1_bmi_v02_4048;
+ 	title "min.bs_glp1_bmi_v02_4048";
+run;
+
+data min.bs_glp1_bmi_v02_4048;
+	set min.bs_glp1_bmi_v02_4048;
+	time_to_exit = glp1_initiation_date - bs_date;
+run;
+
+
 
 /*
 proc datasets library=min nolist;
