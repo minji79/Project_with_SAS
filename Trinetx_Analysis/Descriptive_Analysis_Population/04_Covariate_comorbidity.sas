@@ -81,7 +81,7 @@ run;
 
 
 %let cc_t2db=%str('E11%', '250.00', '250.02');  /* type 2 diabetes - I don;t use 'E08-E13' */
-%let cc_obs=%str('E66%', '278.0%');  /* obesity */
+%let cc_obs=%str('E66%', '278.0%', "Z68.35", "Z68.36", "Z68.37", "Z68.38", "Z68.39", "Z68.41");  /* obesity + bmi >= 35 */
 %let cc_htn=%str('I10%', '401.1', '401.9');  /* hypertentsion */
 %let cc_dyslip=%str('E78%', '272%');  /* Dyslipidemia */
 %let cc_osa=%str('G47.33', '327.23');  /* Obstructive sleep apnea */
@@ -132,7 +132,7 @@ data min.bs_user_comorbidity_v01;
         cc_t2db = 1;
         comorbidity + 1; /* Increment comorbidity */
     end;
-    else if code in ('E66', 'E66.0', 'E66.1', 'E66.2', 'E66.3', 'E66.8', 'E66.9', '278.0') then do;
+    else if code in ('E66', 'E66.0', 'E66.1', 'E66.2', 'E66.3', 'E66.8', 'E66.9', '278.0', "Z68.35", "Z68.36", "Z68.37", "Z68.38", "Z68.39", "Z68.41") then do;
         cc_obs = 1;
         comorbidity + 1;
     end;
@@ -184,7 +184,7 @@ data min.bs_user_comorbidity_v01;
         cc_gerd = 1;
         comorbidity + 1;
     end;
-run;
+run;  /* 24241690 obs */
 
 
 
@@ -203,7 +203,7 @@ proc sql;
     from min.bs_user_comorbidity_v01 as a 
     left join min.bs_glp1_user_38384_v00 as b
     on a.patient_id = b.patient_id;
-quit;   /* 25467365 obs */
+quit;   /* 25467365 ->  obs */
 
 proc print data=min.bs_user_comorbidity_v02 (obs=30);
 	where  cc_pos = 1;
@@ -245,7 +245,7 @@ proc sql;
   from min.bs_user_comorbidity_v03;
 quit;
 proc print data=distinct_patient_count;
-run;   /* 37892 distinct patients have comorbidities */
+run;   /* 37892 -> 37341 distinct patients have comorbidities */
 
 proc sort data=min.bs_user_comorbidity_v03;
 	by patient_id;
@@ -562,19 +562,26 @@ run;
 
 * 4.1. Remain diabetes diagnosed at the glp1 initiation;
 /**************************************************
-* new table: min.bs_user_comorbidity_t2db_glp1
-* original table: min.bs_user_comorbidity_v02
+* new table: min.bs_user_comorbidity_v04
+* original table: min.bs_user_comorbidity_v03
 * description: Remain type 2 diabetes diagnosed at the glp1 initiation 
 **************************************************/
 
 
-proc contents data=min.bs_user_comorbidity_v02;
+proc print data=min.bs_user_comorbidity_v04 (obs=30);
 run;
 
-data min.bs_user_comorbidity_v03;
+data min.bs_user_comorbidity_v04;
    set min.bs_user_comorbidity_v02;
-   if bs_date - como_date ge 0 and bs_date - como_date le 365;
-run;      /* 5732150 obs */
+   if temporality = 2; 
+run;      /* only post-surgery glp1 users = 6008190 obs */
+
+data min.bs_user_comorbidity_v04;
+   set min.bs_user_comorbidity_v04;
+   if 
+run;  
+
+
 
 proc sql;
   create table distinct_patient_count as 
