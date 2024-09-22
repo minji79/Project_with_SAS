@@ -66,16 +66,16 @@ run;
 * description: select each type of BS_users from tx.procedure
 **************************************************/
 
-* 1.2.1. RYGB users (n = 31034);
+* 1.2.1. RYGB users (n = 31034-> 32630 obs);
 
 data min.bs_user_rygb;
   set tx.procedure;
   length bs_type $8;      /* define the length of variable first */
-  if code in ("43644", "43645", "43846", "43847", "44.31", "44.39", "44.38", "0D16078", "0D16479", "0D1647A", "0D164J9", "0D164JA", "0D164K9", "0D164KA", "0D164Z9", "0D164ZA", "0D164ZB") then do;
+  if code in ("43644", "43645", "43846", "43847", "43633", "43.7", "44.39", "44.38", "0D16078", "0D16479", "0D1647A", "0D164J9", "0D164JA", "0D164K9", "0D164KA", "0D164Z9", "0D164ZA", "0D164ZB") then do;
   	bs_type = "rygb";
   end;
   else delete;
-run;              /* 67724 obs */
+run;              /* 67724 -> 70266 obs */
 
 proc print data=min.bs_user_rygb (obs=30);
   title "min.bs_user_rygb";
@@ -97,19 +97,19 @@ proc SQL;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_user_rygb_v02;
   	title "the number of distinct RYGB users";
-quit;   /* 31034 obs - it includes only distinct RYGB users list */
+quit;   /* 31034 obs -> 32630 obs - it includes only distinct RYGB users list */
 
 
-* 1.2.2. SG users (n = 39738);
+* 1.2.2. SG users (n = 39738 -> 42981 obs);
 
 data min.bs_user_sg;
   set tx.procedure;
   length bs_type $8;      /* define the length of variable first */
-  if code in ("43843", "43775", "43.89", "44.69", "43.82", "0DQ60ZZ", "0DB64Z3") then do;
+  if code in ("43842", "43843", "43775", "44.68", "44.69", "43.82", "43.89", "0DQ60ZZ", "0DB64ZZ", "0DB64Z3") then do;
   	bs_type = "sg";
   end;
   else delete;
-run;             /* 79955 obs */
+run;             /* 79955 obs -> 61463 -> 84925 */
 
 proc print data=min.bs_user_sg (obs=30);
   title "min.bs_user_sg";
@@ -121,7 +121,7 @@ data min.bs_user_sg_v01;  /* distinct patient-date */
 run;                /* 79955 obs */
 proc sort data = min.bs_user_sg_v01 nodupkey out =min.bs_user_sg_v02;
 	by _all_;
-run;                /* 40531 obs - it includes all of dates for individuals who have more than one date */
+run;                /* 40531 obs -> 43948 obs - it includes all of dates for individuals who have more than one date */
 
 proc print data=min.bs_user_sg_v02 (obs=30);
   title "min.bs_user_sg_v02";
@@ -130,7 +130,7 @@ run;
 proc SQL;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_user_sg_v02;
-quit;         /* 39738 obs - it includes only distinct SG users list */
+quit;         /* 39738 obs -> 42981 obs - it includes only distinct SG users list */
 
 
 * 1.2.3. AGB users (n = 2465);
@@ -167,6 +167,7 @@ quit;         /* 2465 obs - it includes only distinct AGB users list */
 
 
 * 1.2.4. SADI-S users (n = 5841);
+* min.bs_user_sadi_s;
 
 data min.bs_user_sadi_s;
   set tx.procedure;
@@ -200,23 +201,33 @@ quit;         /* 5841 obs - it includes only distinct SADI-S users list */
 
 
 * 1.2.5. BPD users (n = 26278);
+* min.bs_user_bpd2 ;
+/* "43845", "45.91", "45.51", "43.89", "0D190Z9", "0DB60ZZ", "0DB80ZZ" */
 
 data min.bs_user_bpd;
   set tx.procedure;
   length bs_type $8;      /* define the length of variable first */
-  if code in ("43845", "45.91", "45.51", "43.89", "0D190Z9", "0DB60ZZ", "0DB80ZZ") then do;
+  if code in ("43845") then do;
   	bs_type = "bpd";
   end;
   else delete;
-run;             /* 36944 obs */
+run;             /* 36944 -> 227 obs */
 
-proc print data=min.bs_user_bpd (obs=30);
+data min.bs_user_bpd2;
+  set tx.procedure;
+  length bs_type $8;      /* define the length of variable first */
+  if code in ("43845", "45.91", "45.51", "43.89") then do;
+  	bs_type = "bpd";
+  end;
+  else delete;
+run;             /* 36944 -> 5836 obs */
+
+proc print data=min.bs_user_bpd2 (obs=30);
   title "min.bs_user_bpd";
 run;
 
-
 data min.bs_user_bpd_v01;  /* distinct patient-date */
-	set min.bs_user_bpd (keep = patient_id date bs_type);
+	set min.bs_user_bpd2 (keep = patient_id date bs_type);
 run;                
 proc sort data = min.bs_user_bpd_v01 nodupkey out =min.bs_user_bpd_v02;
 	by _all_;
@@ -229,7 +240,7 @@ run;
 proc SQL;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_user_bpd_v02;
-quit;         /* 26278 obs - it includes only distinct BPD users list */
+quit;         /* 3987 obs - it includes only distinct BPD users list */
 
 
 * 1.2.6. VBG users (n = 573);
@@ -265,7 +276,6 @@ proc SQL;
 quit;         /* 573 obs - it includes only distinct BPD users list */
 
 
-
 * 1.3. Merge all datasets of each type of BS to have all BS users file;
 
 /**************************************************
@@ -280,7 +290,7 @@ data min.bs_user_all_v00;
 run;                          
 proc sort data=min.bs_user_all_v00;
 	by patient_id date;
-run;                    /* 109585 obs */
+run;                    /* 109585 obs -> 90494 */
 
 proc print data=min.bs_user_all_v00 (obs=40);
 	title "min.bs_user_all_v00";
@@ -290,7 +300,7 @@ run;
 proc SQL;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_user_all_v00;
-quit;  
+quit;   /* 81008 obs */
 
 * 1.4. make variable "bs_count" indicating the number of BS by patient;
 
@@ -304,7 +314,7 @@ proc print data=min.bs_user_all_v00 (obs=40);
 	title "min.bs_user_all_v00";
 run;
 
-* 1.5. select the first BS date if patients have multiple BS (n = 99350) ;
+* 1.5. select the first BS date if patients have multiple BS (n = 81008) ;
 
 proc sort data=min.bs_user_all_v00;
 	by patient_id date;
@@ -313,7 +323,7 @@ data min.bs_user_all_v01;
 	set min.bs_user_all_v00;
 	by patient_id;
 	if first.patient_id;
-run;           /* 99350 obs */
+run;           /* 81008 obs */
 
 proc print data=min.bs_user_all_v01 (obs=40);
 	title "min.bs_user_all_v01";
@@ -357,21 +367,21 @@ proc freq data=min.bs_user_all_v01;
 run;
 
 /************************************************************************************
-	STEP 2. BS users (initial use date) between 2016 - 2020    N = 45761
+	STEP 2. BS users (initial use date) between 2015 - 2021    N = 45761 -> 46711
 ************************************************************************************/
 
-* 2.1. select BS users between 2016 - 2020 ;
+* 2.1. select BS users between 2016 - 2021 ;
 
 /**************************************************
 * new table: min.bs_user_all_v02
 * original table: min.bs_user_all_v01
-* description: select BS users between 2016 - 2020
+* description: select BS users between 2015 - 2021
 **************************************************/
 
 data min.bs_user_all_v02;
 	set min.bs_user_all_v01;
-	where year(bs_date) >= 2016 and year(bs_date) <= 2020;
-run;         /* 45761 obs */
+	where year(bs_date) >= 2015 and year(bs_date) <= 2021;
+run;         /* 45761 -> 46711 obs */
 proc print data=min.bs_user_all_v02 (obs=40);
 	title "min.bs_user_all_v02";
 run;
@@ -392,7 +402,7 @@ run;
 
 
 /************************************************************************************
-	STEP 3. Merge "BS users 2016 - 2020" + "demographic data"       N = 45,761
+	STEP 3. Merge "BS users 2015 - 2021" + "demographic data"       N = 46,711
 ************************************************************************************/
 
 * 3.0. see the demograph data;
@@ -420,7 +430,7 @@ proc contents data=tx.genomic;
     title "tx.genomic";
 run;
 
-* 3.1. Merge "BS users 2016 - 2020" + "demographic data";
+* 3.1. Merge "BS users 2015 - 2021" + "demographic data";
 
 /**************************************************
 * new table: min.bs_user_all_v03
@@ -442,7 +452,7 @@ run;
   
 
 /************************************************************************************
-	STEP 4. Age >= 18       N = 44,959
+	STEP 4. Age >= 18       N = 44,959 -> 46245
 ************************************************************************************/
 
 /**************************************************
@@ -481,7 +491,7 @@ run;
 data min.bs_user_all_v05;
   set min.bs_user_all_v04;
   if age_at_bs >=18;
-run;      /* 44959 obs */
+run;      /* 44959 -> 46245 obs */
 
 proc print data=min.bs_user_all_v05 (obs=30);
 	title "in.bs_user_all_v05";
@@ -489,7 +499,7 @@ run;
 
 
 /************************************************************************************
-	STEP 5. Exclude individuals without sex       N = 43,858
+	STEP 5. Exclude individuals without sex       N = 43,858 -> 45016
 ************************************************************************************/
 
 /**************************************************
@@ -504,11 +514,11 @@ run;                   /* nmiss in(sex) = 1101 */
 data min.bs_user_all_v06;	
 	set min.bs_user_all_v05;
 	if not missing (sex);
-run;                   /* 43858 obs */
+run;                   /* 43858 -> 45016 obs */
 
 
 /************************************************************************************
-	STEP 6. Exclude individuals outside the US       N = 42,535
+	STEP 6. Exclude individuals outside the US       N = 42,535 -> 43996
 ************************************************************************************/
 
 /**************************************************
@@ -526,7 +536,7 @@ run;               /* Ex-US = 71, Unknown = 1252 -> total = 1323 */
 data min.bs_user_all_v07;	
 	set min.bs_user_all_v06;
 	if patient_regional_location in('Midwest', 'Northeast', 'South', 'West');
-run;        /* 42535 obs */
+run;        /* 42535 -> 43996 obs */
 
 * 6.1. frequency distribution of users by BS type and count;
 
