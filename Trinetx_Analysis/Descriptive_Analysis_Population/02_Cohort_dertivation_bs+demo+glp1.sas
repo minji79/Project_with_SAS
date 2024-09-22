@@ -18,9 +18,9 @@
               Variable Definition
 * table: min.bs_glp1_user_v03
 * temporality
-*       0  : no glp1_user   (n = 33125)
-*       1  : take glp1 before BS   (n = 4151)
-*       2  : take glp1 after BS    (n = 5259)
+*       0  : no glp1_user   (n = 31667)
+*       1  : take glp1 before BS   (n = 5863)
+*       2  : take glp1 after BS    (n = 6466)
 **************************************************/
 
 
