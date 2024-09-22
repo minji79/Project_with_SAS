@@ -220,7 +220,7 @@ quit;          /* 1,088,256 distinct glp1 users */
 
 
 /************************************************************************************
-	STEP 2. Among BS users, identify glp1 users       N = 9,410
+	STEP 2. Among BS users, identify glp1 users       N = 9,410 -> 12,329
 ************************************************************************************/
 
 * 2.0. before merging, make indicator variables for glp1 users;
@@ -248,7 +248,7 @@ proc SQL;
  	select distinct a.*, b.*
 	from min.bs_user_all_v07 as a left join min.glp1_user_all_date_v01 as b 
 	on a.patient_id=b.patient_id;
-quit;       /* 177,022 obs */
+quit;       /* 177,022 -> 227,651 obs */
 
 * 2.2. fill '0' in glp1_user cells with null values for further analysis;
 
@@ -262,13 +262,13 @@ run;
 proc sql;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_glp1_user_v00;
-quit;           /* it should be the same as "42,535 - BS users" - yes, it is! */
+quit;           /* it should be the same as "43,996 - BS users" - yes, it is! */
 
 proc sql;
     select count(distinct patient_id) as distinct_patient_count
     from min.bs_glp1_user_v00
     where glp1_user = 1;
-quit;           /* 9,410 obs = glp1 users among BS users */
+quit;           /* 12,329 obs = glp1 users among BS users */
 
 proc print data=min.bs_glp1_user_v00 (obs=30);
 	title "min.bs_glp1_user_v00";
@@ -305,7 +305,7 @@ run;
 data min.bs_glp1_user_v01;
 	set min.bs_glp1_user_v00;
 	gap_glp1_bs = glp1_initiation_date - bs_date;
-run;      /* 177022 obs */
+run;      /* 177,022 -> 227,651 obs */
 
 proc print data=min.bs_glp1_user_v01 (obs = 30);
 	var patient_id glp1_user bs_date glp1_initiation_date glp1_date gap_glp1_bs;
@@ -378,7 +378,7 @@ run;
 proc sql;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_glp1_user_v03;
-quit;      /* 42535 obs */
+quit;      /* 43996 obs */
 
 
 * 3.3. frequency distribution of glp1_user;
@@ -391,9 +391,9 @@ run;
               Variable Definition
 * table: min.bs_glp1_user_v03
 * temporality
-*       0  : no glp1_user   (n = 33125)
-*       1  : take glp1 before BS   (n = 4151)
-*       2  : take glp1 after BS    (n = 5259)
+*       0  : no glp1_user   (n = 31667)
+*       1  : take glp1 before BS   (n = 5863)
+*       2  : take glp1 after BS    (n = 6466)
 **************************************************/
 
 
