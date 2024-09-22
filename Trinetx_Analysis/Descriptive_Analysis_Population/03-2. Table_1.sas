@@ -14,10 +14,9 @@
               Variable Definition
 * table: min.bs_glp1_user_v03
 * temporality
-*       0  : no glp1_user   (n = 33125)
-*       1  : take glp1 before BS   (n = 4151)
-*       2  : take glp1 after BS    (n = 5259)
-* glp1_expose_period
+*       0  : no glp1_user   (n = 31667)
+*       1  : take glp1 before BS   (n = 5863)
+*       2  : take glp1 after BS    (n = 6466)
 **************************************************/
 
 
@@ -27,21 +26,16 @@
 
 /**************************************************
 * new dataset: min.bs_glp1_user_v04
-* original dataset: min.bs_glp1_user_v03
+* original dataset: min.bs_glp1_user_v04
 * description: sorted by 'temporality'
 **************************************************/
 
-proc sort data=min.bs_glp1_user_v03 out = min.bs_glp1_user_v04;
+proc sort data=min.bs_glp1_user_v04 out = min.bs_glp1_user_v04;
   by temporality;
 run;
 
 
 * 1.1. Age;
-
-proc means data=min.bs_glp1_user_v03
-  n nmiss median mean min max std maxdec=1;
-  title "min.bs_glp1_user_v03";
-run;
 
 proc means data=min.bs_glp1_user_v04
   n nmiss median mean min max std maxdec=1;
@@ -67,11 +61,6 @@ data min.bs_glp1_user_v05;
   else if 60 <= age_at_bs and age_at_bs < 70 then age_cat=6;
   else if 70 <= age_at_bs and age_at_bs < 80 then age_cat=7;
   else if 80 <= age_at_bs and age_at_bs      then age_cat=8;  
-run;
-
-proc print data = min.bs_glp1_user_v05 (obs=30);
-  var age_at_bs age_cat;
-  title "min.bs_glp1_user_v05";
 run;
 
 /* analysis for total cohort */
@@ -283,7 +272,7 @@ n nmiss median mean min max std;
 run;
 
 
-* 1.9. swt_glp1 - categorized;
+* 1.9. swt_glp1 - categorized; /* delete */
 /**************************************************
 * new dataset: min.bs_glp1_user_v12
 * original dataset: min.bs_glp1_user_v11
@@ -304,12 +293,12 @@ run;
 * 1.10. glp1_type_cat - categorized;
 /**************************************************
 * new dataset: min.bs_glp1_user_v13
-* original dataset: min.bs_glp1_user_v12
+* original dataset: min.bs_glp1_user_v11
 * description: glp1_type_cat - categorized
 **************************************************/
 
 data min.bs_glp1_user_v13;
-  set min.bs_glp1_user_v12;
+  set min.bs_glp1_user_v11;
   format glp1_type_cat 8.;
   if Molecule = "Semaglutide" then glp1_type_cat = 1;
   else if Molecule = "Liraglutide" then glp1_type_cat = 2;
@@ -333,7 +322,7 @@ run;
 data min.bs_glp1_user_38384_v00;
 	set min.bs_glp1_user_v13;
  	if temporality ne 1;
-run;             /* 38384 obs */
+run;             /* 38133 obs */
 
 
 /************************************************************************************
