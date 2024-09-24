@@ -203,7 +203,8 @@ run;
 proc means data=m.bmi_date n nmiss;
 	var date;
  run;
-
+proc contents data=m.bmi_date;
+run;
 
 /* delete */
 proc datasets library=m nolist;
@@ -223,15 +224,21 @@ proc SQL;
  	select a.*, b.date, b.num_value
   	from min.bs_glp1_user_v03 as a left join m.bmi_date as b
    	on a.patient_id = b.patient_id;
-quit;                         /* 865,451 obs - duplicated */
+quit;                         /* 865,451 obs -> 921962 duplicated */
 
-/* adjusted format and name of variables */
-data min.bs_glp1_bmi_v00;
-    set min.bs_glp1_bmi_v00;
-    bmi_date_num = input(date, yymmdd8.);
+proc print data=min.bs_glp1_bmi_v00 (obs=30);
+	var date glp1_date num_value;
+ run;
+
+/* adjusted format and name of variables 
+	bmi_date_num = input(date, yymmdd8.);
     format bmi_date_num yymmdd10.;
     drop date code code_system derived_by_TriNetX;
-    rename bmi_date_num = bmi_date glp1_date = glp1_last_date num_value = bmi;
+    */
+    
+data min.bs_glp1_bmi_v00;
+    set min.bs_glp1_bmi_v00;
+    rename date = bmi_date glp1_date = glp1_last_date num_value = bmi;
 run;
 
 proc contents data=min.bs_glp1_bmi_v00;
@@ -239,13 +246,13 @@ proc contents data=min.bs_glp1_bmi_v00;
 run;
 
 proc print data=min.bs_glp1_bmi_v00 (obs=30);
-	var patient_id glp1_initiation_date glp1_last_date glp1_gap glp1_expose_period bmi_date bmi;
+	var patient_id glp1_initiation_date glp1_last_date glp1_gap glp1_expose_period bmi_date date bmi;
 	where temporality =1;
 	title "min.bs_glp1_bmi_v00";
 run;
 
 proc means data=min.bs_glp1_bmi_v00 n nmiss;
-	var bmi bmi_date;
+	var bmi ;
 run;
 
 proc sql;
@@ -285,7 +292,7 @@ proc sql;
 	select count(distinct patient_id) as distinct_patient_count
  	from min.bs_glp1_bmi_v01_18937;
   	title "min.bs_glp1_bmi_v01_18937";
-quit;     /* 20867 distinct patients */
+quit;     /* 20867 -> 21797 distinct patients */
 
 data min.bs_glp1_bmi_v01_18937;
 	set min.bs_glp1_bmi_v01_18937;
@@ -293,7 +300,7 @@ data min.bs_glp1_bmi_v01_18937;
   		gap1 = bs_date - bmi_date;
   	end;
  	else delete;
-run;          /* 396445 obs  (= 18937 distinct patients) */
+run;          /* 396445 obs -> 429183 (= 18937 distinct patients) */
 
 proc sort data=min.bs_glp1_bmi_v01_18937;
 	by patient_id gap1;
@@ -303,7 +310,7 @@ data min.bs_glp1_bmi_v01_18937;
 	set min.bs_glp1_bmi_v01_18937;
  	by patient_id;
  	if first.patient_id;
-run;       /* 18937 distinct patients */
+run;       /* 18937 -> 20107 distinct patients */
 
 data min.bs_glp1_bmi_v01_18937;
 	set min.bs_glp1_bmi_v01_18937;
@@ -313,7 +320,7 @@ run;
 data min.bs_glp1_bmi_v01_18937;
 	set min.bs_glp1_bmi_v01_18937;
  	if temporality ne 1;
-  run;
+  run;   /* 17131 obs */
 
 
 proc print data=min.bs_glp1_bmi_v01_18937 (obs=30);
@@ -380,7 +387,7 @@ data min.bs_glp1_bmi_v02;
   		gap2 = glp1_initiation_date  - bmi_date;
   	end;
  	else delete;
-run;          /* 134298 obs  (= 4048 distinct patients) */
+run;          /* 134298 obs -> 174483 (= 4048 distinct patients) */
 
 proc sort data=min.bs_glp1_bmi_v02;
 	by patient_id gap2;
@@ -390,7 +397,7 @@ data min.bs_glp1_bmi_v02;
 	set min.bs_glp1_bmi_v02;
  	by patient_id;
  	if first.patient_id;
-run;       /* 4048 distinct patients */
+run;       /* 4048 -> 5391 distinct patients */
 
 data min.bs_glp1_bmi_v02_4048;
 	set min.bs_glp1_bmi_v02;
@@ -622,16 +629,6 @@ proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
  	title "min.bs_glp1_bmi_1y_af_v02";
 run;
 
-
-proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
-	var bmi;
- 	title "min.bs_glp1_bmi_1y_af_v02";
-run;
-proc means data=min.bs_glp1_bmi_1y_af_v02 n nmiss median p25 p75 min max;
-	var bmi;
-	by temporality;
- 	title "min.bs_glp1_bmi_1y_af_v02";
-run;
 
 
 * 6.4. bmi_2y_af | BMI 2 years after the BS date;
