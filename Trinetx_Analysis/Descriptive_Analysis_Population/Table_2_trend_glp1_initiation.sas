@@ -88,9 +88,17 @@ data min.bs_glp1_user_38384_v01;
       time_to_init = 'af 78-84m';
       time_to_init_cat = 14;
     end;
-    else if  365*7    <= gap_glp1_bs and gap_glp1_bs     then do;
-      time_to_init = 'af 84m + ';
+    else if  365*7    <= gap_glp1_bs and gap_glp1_bs < 365*7.5    then do;
+      time_to_init = 'af 84-90m';
       time_to_init_cat = 15;
+    end;
+    else if  365*7.5    <= gap_glp1_bs and gap_glp1_bs < 365*8    then do;
+      time_to_init = 'af 90-96m';
+      time_to_init_cat = 16;
+    end;
+    else if  365*8    <= gap_glp1_bs and gap_glp1_bs     then do;
+      time_to_init = 'af 96m + ';
+      time_to_init_cat = 17;
     end;
 run;
 
@@ -240,7 +248,7 @@ run;
 /* bar graph with table with number */
 proc sgplot data=min.bs_glp1_user_38384_v01_hist;
     vbar time_to_init_cat / response=Count;
-    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 15 by 1)
+    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 17 by 1)
            valueattrs=(weight=bold size=10) /* Adjust label style */
            valuesdisplay=(
                '6' 
@@ -257,7 +265,9 @@ proc sgplot data=min.bs_glp1_user_38384_v01_hist;
                '72'
                '78'
                '84'
-               '84+'
+               '90'
+	       '96'
+	       '96+'
            );
     yaxis label="Individuals initiating GLP-1 after surgery, count";
     title "Number of GLP-1 initiators overtime";
@@ -354,7 +364,7 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph4;
                                            datalabel=col_pct datalabelattrs=(size=8); /* Add data labels */
     series x=time_to_init_cat y=col_pct / group=Molecule lineattrs=(thickness=2);
 
-    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 15 by 1)
+    xaxis label="Time to Initiation from bariatric surgery date (Months)" values=(1 to 17 by 1)
            valueattrs=(weight=bold size=10) /* Adjust label style */
            valuesdisplay=(
                '6' 
@@ -371,7 +381,9 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph4;
                '72'
                '78'
                '84'
-               '84+'
+               '90'
+	       '96'
+	       '96+'
            );
 
     yaxis label="Percentage of GLP-1 initiation (%)" values=(0 to 80 by 10);
@@ -379,6 +391,10 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph4;
     xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
 run;
 
+/* total number */
+proc freq data=min.bs_glp1_user_38384_linegraph4;
+	table total_by_year*time_to_init_cat;
+run;
 
 /**************************
 	figure 5-2
@@ -476,6 +492,11 @@ proc sgplot data=min.bs_glp1_user_38384_linegraph7;
     yaxis label="Percentage of GLP-1 initiation (%)" values=(0 to 80 by 10);
     title "GLP-1 Initiation Year by GLP-1 Type";
     xaxistable count / class=Molecule title = "Number of initiators by GLP1 types";
+run;
+
+/* total number */
+proc freq data=min.bs_glp1_user_38384_linegraph6;
+	table total*glp1_init_year;
 run;
 
 
