@@ -34,18 +34,23 @@
 	STEP 2. Generate study entry variable to account for the late entry - we don't have late entry based on study design
 ************************************************************************************/
 
+* 0. merge out study population with co-medication file and morbidity file;
+
+/* everything is in R */
+
 /**************************************************
 * new dataset: min.time_to_glp1_v00
-* original dataset: min.bs_glp1_user_v12
+* original dataset: min.bs_glp1_user_38384_v00;
 * description: Exclude people who did not undergo BS (no time origin) & had GLP-1 exposure before BS date
 **************************************************/
 
+
 data min.time_to_glp1_v00;
-  set min.bs_glp1_user_v12;  /* use categorized covariates */
+  set min.bs_glp1_user_38384_v00;  /* use categorized covariates */
   format entry_date yymmdd10.;
   entry_date = bs_date;
   if temporality ne 1;
-run;        /* 38384 obs + 44 var -> confirm n= 38384 */
+run;        /* 38384 -> 38133 obs + 44 var -> confirm n= 38384 */
 
 proc print data=min.time_to_glp1_v00 (obs=30);
 	var patient_id entry_date bs_date glp1_initiation_date temporality;
@@ -181,8 +186,8 @@ run;
 
 
 /*
-1. death = 5858
-2. administrative censored = 27380
-5. glp1 initiation = 5146
-total = 38384
+1. event = 6335
+2. death = 2982
+3. administrative censored = 28816
+total = 38113
 */
