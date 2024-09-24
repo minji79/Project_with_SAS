@@ -73,12 +73,12 @@ proc sql;
     select count(distinct patient_id) as negative_PT
     from min.time_to_glp1_v04
     where time_to_exit < 0;
-quit;    /* 679 of negative values in time_to_exit variables */
+quit;    /* 679 -> 438 of negative values in time_to_exit variables */
 
 proc freq data=min.time_to_glp1_v04;
     tables exit_type_cat / list missing;
     where time_to_exit < 0;
-run;      /* 679 of negative values in time_to_exit variables : 679 = death */
+run;      /* 438 of negative values in time_to_exit variables : 438 = death */
 
 /* see death data with other dataset */
 data min.bs_glp1_user_v13;
@@ -123,43 +123,30 @@ proc print data=min.time_to_glp1_v04 (obs=30);
   title "min.time_to_glp1_v04";
 run;
 
-* 2.2. glp1_type_cat;
-
-data min.time_to_glp1_v05;
-  set min.time_to_glp1_v04;
-  format glp1_type_cat 8.;
-  if Molecule = "Semaglutide" then glp1_type_cat = 1;
-  else if Molecule = "Liraglutide" then glp1_type_cat = 2;
-  else if Molecule = "Dulaglutide" then glp1_type_cat = 3;
-  else if Molecule = "Exenatide" then glp1_type_cat = 4;
-  else if Molecule = "Lixisenatide" then glp1_type_cat = 5;
-  else if Molecule = "Tirzepatide" then glp1_type_cat = 6;
-run;
-
 
 /************************************************************************************
-	STEP 3. Drop 113 individuals with invalid data (death date < glp1 iniatiation )
+	STEP 3. Drop 131 individuals with invalid data (death date < glp1 iniatiation )
 ************************************************************************************/
 
 /**************************************************
 * new dataset: min.time_to_glp1_v06
-* original dataset: min.time_to_glp1_v05
+* original dataset: min.time_to_glp1_v04
 * description: Drop 131 individuals with invalid data (death date < glp1 iniatiation )
 **************************************************/
 
-/* how to identify 113 indiv with invalid data (death date < glp1 iniatiation ) */
+/* how to identify 131 indiv with invalid data (death date < glp1 iniatiation ) */
 
 proc sql;
     select count(distinct patient_id) as death_prior_glp1
-    from min.time_to_glp1_v05
+    from min.time_to_glp1_v04
     where death_date < init_glp1_date and death_date ne .;
-quit;              /* we can find 113 indiv */
+quit;              /* we can find 131 indiv */
 
 
 data min.time_to_glp1_v06;
-	set min.time_to_glp1_v05;
+	set min.time_to_glp1_v04;
  	if death_date < init_glp1_date and death_date ne . then delete;
-run;   /* 38271 obs = 38384 - 113 */
+run;   /* 38002 obs = 38133 - 131 */
 
 
 /************************************************************************************
