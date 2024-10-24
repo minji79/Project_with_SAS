@@ -336,18 +336,18 @@ Left join Bmi_after_m21_avg b21 on b.patient_id =b21.patient_id and b.bs_date =b
 Left join Bmi_after_m22_avg b22 on b.patient_id =b22.patient_id and b.bs_date =b22.bs_date
 Left join Bmi_after_m23_avg b23 on b.patient_id =b23.patient_id and b.bs_date =b23.bs_date
 Left join Bmi_after_m24_avg b24 on b.patient_id =b24.patient_id and b.bs_date =b24.bs_date 
-Left join Bmi_after_m24_avg b25 on b.patient_id =b24.patient_id and b.bs_date =b25.bs_date 
-Left join Bmi_after_m24_avg b26 on b.patient_id =b24.patient_id and b.bs_date =b26.bs_date 
-Left join Bmi_after_m24_avg b27 on b.patient_id =b24.patient_id and b.bs_date =b27.bs_date 
-Left join Bmi_after_m24_avg b28 on b.patient_id =b24.patient_id and b.bs_date =b28.bs_date 
-Left join Bmi_after_m24_avg b29 on b.patient_id =b24.patient_id and b.bs_date =b29.bs_date 
-Left join Bmi_after_m24_avg b30 on b.patient_id =b24.patient_id and b.bs_date =b30.bs_date 
-Left join Bmi_after_m24_avg b31 on b.patient_id =b24.patient_id and b.bs_date =b31.bs_date 
-Left join Bmi_after_m24_avg b32 on b.patient_id =b24.patient_id and b.bs_date =b32.bs_date 
-Left join Bmi_after_m24_avg b33 on b.patient_id =b24.patient_id and b.bs_date =b33.bs_date 
-Left join Bmi_after_m24_avg b34 on b.patient_id =b24.patient_id and b.bs_date =b34.bs_date 
-Left join Bmi_after_m24_avg b35 on b.patient_id =b24.patient_id and b.bs_date =b35.bs_date 
-Left join Bmi_after_m24_avg b36 on b.patient_id =b24.patient_id and b.bs_date =b36.bs_date ;
+Left join Bmi_after_m25_avg b25 on b.patient_id =b25.patient_id and b.bs_date =b25.bs_date 
+Left join Bmi_after_m26_avg b26 on b.patient_id =b26.patient_id and b.bs_date =b26.bs_date 
+Left join Bmi_after_m27_avg b27 on b.patient_id =b27.patient_id and b.bs_date =b27.bs_date 
+Left join Bmi_after_m28_avg b28 on b.patient_id =b28.patient_id and b.bs_date =b28.bs_date 
+Left join Bmi_after_m29_avg b29 on b.patient_id =b29.patient_id and b.bs_date =b29.bs_date 
+Left join Bmi_after_m30_avg b30 on b.patient_id =b30.patient_id and b.bs_date =b30.bs_date 
+Left join Bmi_after_m31_avg b31 on b.patient_id =b31.patient_id and b.bs_date =b31.bs_date 
+Left join Bmi_after_m32_avg b32 on b.patient_id =b32.patient_id and b.bs_date =b32.bs_date 
+Left join Bmi_after_m33_avg b33 on b.patient_id =b33.patient_id and b.bs_date =b33.bs_date 
+Left join Bmi_after_m34_avg b34 on b.patient_id =b34.patient_id and b.bs_date =b34.bs_date 
+Left join Bmi_after_m35_avg b35 on b.patient_id =b35.patient_id and b.bs_date =b35.bs_date 
+Left join Bmi_after_m36_avg b36 on b.patient_id =b36.patient_id and b.bs_date =b36.bs_date ;
 quit;
 
 proc print data = min.bmi_discrete_wide (obs = 30);
