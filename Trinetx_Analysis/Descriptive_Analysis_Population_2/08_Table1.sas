@@ -244,6 +244,13 @@ data min.studypopulation_v02;
   else if 40.0 <= bmi_index then bmi_index_cat=6;                          /* obesity - class 3 */
 run;
 
+
+proc sgplot data=min.studypopulation_v02;
+    histogram bmi_index;
+    title "BMI at Baseline";
+run;
+
+
 proc freq data=min.studypopulation_v02;
   tables bmi_index_cat*temporality / chisq;
   title "bmi_index_cat distribution";
