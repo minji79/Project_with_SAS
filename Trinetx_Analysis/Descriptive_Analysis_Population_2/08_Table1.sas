@@ -236,20 +236,21 @@ run;
 data min.studypopulation_v02;
   set min.studypopulation_v02;
   format bmi_index_cat 8.;
-  if bmi_index < 18.5 then bmi_index_cat=1;                                /* underweight */
+  if missing(bmi_index) then bmi_index_cat=0;                              /* missing */
+  else if bmi_index < 18.5 then bmi_index_cat=1;                           /* underweight */
   else if 18.5 <= bmi_index and bmi_index < 25.0 then bmi_index_cat=2;     /* healthy weight */
   else if 25.0 <= bmi_index and bmi_index < 30.0 then bmi_index_cat=3;     /* over weight */
   else if 30.0 <= bmi_index and bmi_index < 35.0 then bmi_index_cat=4;     /* obesity - class 1 */
   else if 35.0 <= bmi_index and bmi_index < 40.0 then bmi_index_cat=5;     /* obesity - class 2 */
   else if 40.0 <= bmi_index then bmi_index_cat=6;                          /* obesity - class 3 */
+  
 run;
 
-
+/* see distribution */
 proc sgplot data=min.studypopulation_v02;
     histogram bmi_index;
     title "BMI at Baseline";
 run;
-
 
 proc freq data=min.studypopulation_v02;
   tables bmi_index_cat*temporality / chisq;
@@ -341,25 +342,6 @@ proc freq data=min.studypopulation_v02; tables temporality * cm_ob / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cm_depres / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cm_psycho / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cm_convul / chisq; run;
-
-
-
-
-b.cm_metformin,
-           b.cm_dpp4,
-           b.cm_sglt2,
-           b.cm_su,
-           b.cm_thiaz,
-           b.cm_insul,
-           b.cm_depres, 
-           b.cm_psycho,
-           b.cm_convul
-
-
-
-
-
-
 
 
 * 3.11. BMI various values;
