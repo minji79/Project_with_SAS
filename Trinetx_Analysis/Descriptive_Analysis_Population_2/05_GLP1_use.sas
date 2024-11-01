@@ -131,8 +131,41 @@ proc freq data=min.glp1_user_linegraph_v01;
 run;
 
 
+/************************************************************************************
+	STEP 3. Make time-to-initiation variable 
+************************************************************************************/
+
+data min.glp1_users_6335_v02;
+    set min.glp1_users_6335_v01;
+    format time_to_glp1_cat 8.;
+    
+    /* Calculate the time difference in days */
+    time_diff = glp1_initiation_date - bs_date;
+
+    /* Categorize based on time difference */
+    if 0 <= time_diff < 365 then time_to_glp1_cat = 1;        /* started within 1 year */
+    else if 365 <= time_diff < 730 then time_to_glp1_cat = 2; /* started between 1-2 years */
+    else if 730 <= time_diff < 1095 then time_to_glp1_cat = 3; /* started between 2-3 years */
+    else if 1095 <= time_diff < 1460 then time_to_glp1_cat = 4; /* started between 3-4 years */
+    else if 1460 <= time_diff < 1825 then time_to_glp1_cat = 5; /* started between 4-5 years */
+    else if 1825 <= time_diff < 2190 then time_to_glp1_cat = 6; /* started between 5-6 years */
+    else if 2190 <= time_diff < 2555 then time_to_glp1_cat = 7; /* started between 6-7 years */
+    else if time_diff >= 2555 then time_to_glp1_cat = 8;       /* started after 7 years */
+
+    drop time_diff;
+run;
 
 
 
+
+
+
+
+
+
+
+
+
+   
 
 
