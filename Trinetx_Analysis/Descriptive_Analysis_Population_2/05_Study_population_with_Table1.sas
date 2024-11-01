@@ -129,7 +129,7 @@ data min.studypopulation_v01;
 run;
 
 /************************************************************************************
-	STEP 2. covariate with p value
+	STEP 2. Table 1 covariate with p value
 ************************************************************************************/
 
 /**************************************************
@@ -314,7 +314,7 @@ proc ttest data=min.studypopulation_v02;
    var bmi_index;
 run;
 
-* 1.12. comorbidities - proportional data;
+* 1.12. comorbidities;
 
 proc freq data=min.studypopulation_v02; tables temporality * cc_t2db / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cc_obs / chisq; run;
@@ -330,7 +330,7 @@ proc freq data=min.studypopulation_v02; tables temporality * cc_ckd / chisq; run
 proc freq data=min.studypopulation_v02; tables temporality * cc_pos / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cc_gerd / chisq; run;
 
-* 1.13. comedication - proportional data;
+* 1.13. comedication;
 
 proc freq data=min.studypopulation_v02; tables temporality * cm_metformin / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cm_dpp4 / chisq; run;
@@ -343,6 +343,34 @@ proc freq data=min.studypopulation_v02; tables temporality * cm_depres / chisq; 
 proc freq data=min.studypopulation_v02; tables temporality * cm_psycho / chisq; run;
 proc freq data=min.studypopulation_v02; tables temporality * cm_convul / chisq; run;
 
+
+* 1.14. Make time-to-initiation variable;
+
+data min.studypopulation_v02;
+    set min.studypopulation_v02;
+    format time_to_glp1_cat 8.;
+    
+    /* Calculate the time difference in days */
+    time_diff = glp1_initiation_date - bs_date;
+
+    /* Categorize based on time difference */
+    if missing(glp1_initiation_date) then time_to_glp1_cat = 0;       /* non-users */
+    else if 0    <= time_diff < 365 then time_to_glp1_cat = 1;        /* started within 1 year */
+    else if 365  <= time_diff < 730 then time_to_glp1_cat = 2;        /* started between 1-2 years */
+    else if 730  <= time_diff < 1095 then time_to_glp1_cat = 3;       /* started between 2-3 years */
+    else if 1095 <= time_diff < 1460 then time_to_glp1_cat = 4;       /* started between 3-4 years */
+    else if 1460 <= time_diff < 1825 then time_to_glp1_cat = 5;       /* started between 4-5 years */
+    else if 1825 <= time_diff < 2190 then time_to_glp1_cat = 6;       /* started between 5-6 years */
+    else if 2190 <= time_diff < 2555 then time_to_glp1_cat = 7;       /* started between 6-7 years */
+    else if time_diff >= 2555 then time_to_glp1_cat = 8;              /* started after 7 years */
+
+    drop time_diff;
+run;
+
+proc freq data=min.studypopulation_v02;
+	tables time_to_glp1_cat;
+ 	title "distribution of time-to-initiation cat";
+run;
 
 * 3.11. BMI various values;
 /*
