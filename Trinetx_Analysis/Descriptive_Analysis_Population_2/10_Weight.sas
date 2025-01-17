@@ -32,7 +32,7 @@ data weight_v01;
 run;
 
 * format change;
-data min.weight_v01;
+data weight_v01;
 	set weight_v01;
 	weight_date = input(date, yymmdd8.);
 	format weight_date yymmdd10.;
