@@ -31,6 +31,26 @@ data weight_v01;
   if not missing(value);
 run;
 
-proc print data=weight_v01 (obs=30);
+* format change;
+data min.weight_v01;
+	set weight_v01;
+	weight_date = input(date, yymmdd8.);
+	format weight_date yymmdd10.;
 run;
+proc print data=min.weight_v01 (obs=30);
+run;
+
+* pound -> kg;
+* kg = pound/2.20462;
+
+data min.weight_v01;
+	set weight_v01;
+ 	weight_kg = value/2.20462;
+run;
+data min.weight_v01;
+	set weight_v01;
+	drop value date;
+run;
+
+
 
