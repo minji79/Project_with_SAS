@@ -412,3 +412,29 @@ proc ttest data=min.bs_glp1_bmi_3y_af_v02;
    var bmi;
 run;
 
+
+/* height */
+data m.height;
+    set m.vitals_signs;
+    if code = '8302-2';
+run;
+
+proc sql;
+    create table min.studypopulation_heigth as
+    select distinct a.*, b.date, b.num_value           
+    from min.studypopulation_v03 a 
+    left join m.height b on a.patient_id = b.patient_id;
+quit;
+
+/* */
+    
+proc sql;
+    create table min.studypopulation_height_avg as
+    select patient_id, avg(num_value) as avg_value
+    from min.studypopulation_heigth
+    group by patient_id;
+quit;
+
+proc means data=min.studypopulation_height_avg t n nmiss;
+    var avg_value;
+run;
