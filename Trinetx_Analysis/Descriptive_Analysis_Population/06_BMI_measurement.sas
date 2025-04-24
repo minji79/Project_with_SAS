@@ -131,6 +131,24 @@ proc print data=m.vitals_signs (obs=30);
 run;
 
 
+proc sql;
+    create table filtered_patients as
+    select patient_id
+    from m.vitals_signs
+    group by patient_id
+    having sum(code = "39156-5") > 0 
+           and sum(code in ("29463-7", "8302-2")) = 0;
+quit;
+
+data m.filtered_patients;
+	set filtered_patients;
+ run;
+
+proc contents data=filtered_patients;
+	title "m.vitals_signs";
+run;
+
+
 * 2.1. make a table with only BMI information sorted by patients.id;
 /**************************************************
 * new table: m.bmi
