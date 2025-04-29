@@ -413,28 +413,43 @@ proc ttest data=min.bs_glp1_bmi_3y_af_v02;
 run;
 
 
-/* height */
+
+/************************************************************************************
+	STEP 3. Height & Weight to identify BMI
+************************************************************************************/
+
+/* 1. forming studypopulation who underwent only SG & RYGB */
+data min.studypopulation; 
+	set min.studypopulation_v03;
+ 	if bs_type in ("sg", "rygb");
+run; /* 35315 obs */
+
+/* 2. height */
 data m.height;
     set m.vitals_signs;
     if code = '8302-2';
 run;
 
+/* 3. studypopulation with height */
 proc sql;
     create table min.studypopulation_heigth as
     select distinct a.*, b.date, b.num_value           
-    from min.studypopulation_v03 a 
+    from min.studypopulation a 
     left join m.height b on a.patient_id = b.patient_id;
 quit;
 
-/* */
-    
+/* 4. calculate average of height within the studypopulation with height */   
 proc sql;
     create table min.studypopulation_height_avg as
-    select patient_id, avg(num_value) as avg_value
+    select patient_id, avg(num_value) as avg_height
     from min.studypopulation_heigth
     group by patient_id;
 quit;
 
 proc means data=min.studypopulation_height_avg t n nmiss;
-    var avg_value;
+    var avg_height;
+    title "avg_height";
 run;
+
+
+
