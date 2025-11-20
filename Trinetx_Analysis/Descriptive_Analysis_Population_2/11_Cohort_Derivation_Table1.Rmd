@@ -1,0 +1,527 @@
+---
+title: "11_Cohort_Derivation_Table1"
+output: html_document
+date: "2025-02-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Setting 
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(gt)
+library(patchwork)
+library(stringr)
+
+pop <- read_sas("studypopulation_25update.sas7bdat")
+nrow(pop) # 112895
+
+names(pop)
+table(pop$glp1_user)
+
+#como <- read_sas("bs_user_comorbidity_v00.sas7bdat")
+#df <- readRDS("studypopulation.rds")
+```
+### Cohort Derivation
+1. dataset cleaning
+```{r}
+# drop the col
+pop <- pop %>% dplyr::select(-bs_count, -reason_yob_missing, -month_year_death, -death_date_source_id, -source_id, -year_of_birth, -death_year, -death_month, -encounter_id, -unique_id, -code_system, -code, -route, -strength, -derived_by_TriNetX, -glp1_date, -gap_glp1_bs, -temporality, -age_cat)
+
+# address NA in comorbidity variables
+pop$cc_obs <- ifelse(is.na(pop$cc_obs), 0, pop$cc_obs)
+pop$cc_htn <- ifelse(is.na(pop$cc_htn), 0, pop$cc_htn)
+pop$cc_dyslip <- ifelse(is.na(pop$cc_dyslip), 0, pop$cc_dyslip)
+pop$cc_osa <- ifelse(is.na(pop$cc_osa), 0, pop$cc_osa)
+pop$cc_af <- ifelse(is.na(pop$cc_af), 0, pop$cc_af)
+pop$cc_hf <- ifelse(is.na(pop$cc_hf), 0, pop$cc_hf)
+pop$cc_liver <- ifelse(is.na(pop$cc_liver), 0, pop$cc_liver)
+pop$cc_cad <- ifelse(is.na(pop$cc_cad), 0, pop$cc_cad)
+pop$cc_pos <- ifelse(is.na(pop$cc_pos), 0, pop$cc_pos)
+pop$cc_gerd <- ifelse(is.na(pop$cc_gerd), 0, pop$cc_gerd)
+pop$cm_thiaz <- ifelse(is.na(pop$cm_thiaz), 0, pop$cm_thiaz)
+
+# address Null
+pop$glp1_initiation_date.n <- ifelse(is.na(pop$glp1_initiation_date), Inf, pop$glp1_initiation_date)
+pop$death_date.n <- ifelse(is.na(pop$death_date), Inf, pop$death_date)
+pop$bs_date.n <- as.numeric(pop$bs_date)
+
+# remove 
+pop <- pop %>% filter(death_date.n != bs_date.n) # 112878 -> 17 invalid rows
+pop <- pop %>% filter(glp1_initiation_date.n != bs_date.n) # 112858 -> 20 invalid rows
+
+nrow(pop)
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(pop, plot=FALSE)
+```
+2. drop 
+```{r}
+nrow(pop) # 112858
+pop <- pop %>% filter(bs_type %in% c('rygb','sg'))
+pop %>% group_by(glp1_user) %>% count() # GLP1 users = 15749	
+```
+## table 1
+1. age
+```{r}
+# continuous
+pop %>% summarise(mean.age = mean(age_at_bs), std.age = sd(age_at_bs))
+pop %>% group_by(glp1_user) %>%
+  summarise(mean.age = mean(age_at_bs),
+            std.age = sd(age_at_bs))
+t.test.result <- t.test(age_at_bs ~ glp1_user, data = pop) %>% print()
+# categorical
+pop <- pop %>% 
+  mutate(age_cat = case_when(
+    age_at_bs >= 18 & age_at_bs < 35 ~ 1,
+    age_at_bs >= 35 & age_at_bs < 50 ~ 2,
+    age_at_bs >= 50 & age_at_bs < 65 ~ 3,
+    age_at_bs >= 65  ~ 4
+  ))
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.age18.35 = sum(age_cat == 1, na.rm = TRUE) / n() * 100,
+  prop.age35.50 = sum(age_cat == 2, na.rm = TRUE) / n() * 100,
+  prop.age50.65 = sum(age_cat == 3, na.rm = TRUE) / n() * 100,
+  prop.age65 = sum(age_cat == 4, na.rm = TRUE) / n() * 100
+)
+# count
+pop %>%
+  #group_by(glp1_user) %>%
+  summarise(
+    count.age18.35 = sum(age_cat == 1, na.rm = TRUE),
+    count.age35.50 = sum(age_cat == 2, na.rm = TRUE),
+    count.age50.65 = sum(age_cat == 3, na.rm = TRUE),
+    count.age65     = sum(age_cat == 4, na.rm = TRUE)
+  )
+chisq.test(table(pop$age_cat, pop$glp1_user))
+```
+# sex
+```{r}
+pop  %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.male = sum(sex == "M", na.rm = TRUE) / n() * 100,
+  prop.female = sum(sex == "F", na.rm = TRUE) / n() * 100
+)
+# count
+pop  %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  count.male = sum(sex == "M", na.rm = TRUE),
+  count.female = sum(sex == "F", na.rm = TRUE)
+)
+chisq.test(table(pop$sex, pop$glp1_user))
+```
+3. race
+```{r}
+table(pop$race)
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.white = sum(race == 'White', na.rm = TRUE) / n() * 100,
+  prop.black = sum(race == 'Black or African American', na.rm = TRUE) / n() * 100,
+  prop.asian = sum(race == 'Asian', na.rm = TRUE) / n() * 100,
+  prop.other = sum(race %in% c('Other Race', 'American Indian or Alaska Native', 'Native Hawaiian or Other Pacific Islander', 'Unknown'), na.rm = TRUE) / n() * 100
+)
+# count 
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.white = sum(race == 'White', na.rm = TRUE),
+  prop.black = sum(race == 'Black or African American', na.rm = TRUE),
+  prop.asian = sum(race == 'Asian', na.rm = TRUE),
+  prop.other = sum(race %in% c('Other Race', 'American Indian or Alaska Native', 'Native Hawaiian or Other Pacific Islander', 'Unknown'), na.rm = TRUE)
+)
+chisq.test(table(pop$race, pop$glp1_user))
+```
+4. Ethnicity 
+```{r}
+table(pop$ethnicity)
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.his = sum(ethnicity == 'Hispanic or Latino', na.rm = TRUE) / n() * 100,
+  prop.nothis = sum(ethnicity == 'Not Hispanic or Latino', na.rm = TRUE) / n() * 100,
+  prop.unknown = sum(ethnicity == 'Unknown', na.rm = TRUE) / n() * 100
+)
+# count 
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.his = sum(ethnicity == 'Hispanic or Latino', na.rm = TRUE),
+  prop.nothis = sum(ethnicity == 'Not Hispanic or Latino', na.rm = TRUE),
+  prop.unknown = sum(ethnicity == 'Unknown', na.rm = TRUE)
+)
+chisq.test(table(pop$ethnicity, pop$glp1_user))
+```
+5. Marital status
+```{r}
+table(pop$marital_status)
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.Married = sum(marital_status == 'Married', na.rm = TRUE) / n() * 100,
+  prop.Single = sum(marital_status == 'Single', na.rm = TRUE) / n() * 100,
+  prop.Unknown = sum(marital_status == 'Unknown', na.rm = TRUE) / n() * 100
+)
+# count 
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.Married = sum(marital_status == 'Married', na.rm = TRUE),
+  prop.Single = sum(marital_status == 'Single', na.rm = TRUE),
+  prop.Unknown = sum(marital_status == 'Unknown', na.rm = TRUE)
+)
+chisq.test(table(pop$marital_status, pop$glp1_user))
+```
+6. Regional location 
+```{r}
+table(pop$patient_regional_location)
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.Midwest = sum(patient_regional_location == 'Midwest', na.rm = TRUE) / n() * 100,
+  prop.Northeast = sum(patient_regional_location == 'Northeast', na.rm = TRUE) / n() * 100,
+  prop.South = sum(patient_regional_location == 'South', na.rm = TRUE) / n() * 100,
+  prop.West = sum(patient_regional_location == 'West', na.rm = TRUE) / n() * 100
+)
+#count 
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.Midwest = sum(patient_regional_location == 'Midwest', na.rm = TRUE),
+  prop.Northeast = sum(patient_regional_location == 'Northeast', na.rm = TRUE),
+  prop.South = sum(patient_regional_location == 'South', na.rm = TRUE),
+  prop.West = sum(patient_regional_location == 'West', na.rm = TRUE)
+)
+chisq.test(table(pop$patient_regional_location, pop$glp1_user))
+```
+7. surgery type
+```{r}
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.sg = sum(bs_type == 'sg', na.rm = TRUE) / n() * 100,
+  prop.rygb = sum(bs_type == 'rygb', na.rm = TRUE) / n() * 100
+)
+# count 
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.sg = sum(bs_type == 'sg', na.rm = TRUE),
+  prop.rygb = sum(bs_type == 'rygb', na.rm = TRUE)
+)
+chisq.test(table(pop$bs_type, pop$glp1_user))
+```
+8. bmi index
+```{r}
+# category for the bmi_index
+summary(pop$bmi_index)
+hist(pop$bmi_index)
+pop <- pop %>%
+  mutate(
+    bmi_index_cat = case_when(
+      bmi_index < 10 | is.na(bmi_index) ~ 0,    # Missingness & weird values
+      bmi_index < 18.5 ~ 1,                     # Underweight
+      bmi_index >= 18.5 & bmi_index < 25 ~ 2,   # Healthy weight
+      bmi_index >= 25 & bmi_index < 30 ~ 3,     # Overweight
+      bmi_index >= 30 & bmi_index < 35 ~ 4,     # Obesity - Class 1
+      bmi_index >= 35 & bmi_index < 40 ~ 5,     # Obesity - Class 2
+      bmi_index >= 40 ~ 6                       # Obesity - Class 3
+    )
+  )
+pop %>% filter(!is.na(bmi_index)) %>% group_by(glp1_user) %>% count() # 11751	-> 1806 for glp1 user, 9945 for non-users
+pop %>% group_by(glp1_user) %>%
+  summarise(median.bmi = median(bmi_index, na.rm = TRUE),
+            q1.bmi = quantile(bmi_index, 0.25, na.rm = TRUE),
+            q3.bmi = quantile(bmi_index, 0.75, na.rm = TRUE)
+            )
+t.test.result <- t.test(bmi_index ~ glp1_user, data = pop) %>% print()
+
+#count 
+pop %>% 
+  group_by(glp1_user) %>% 
+  summarise(
+  prop.Overweight = sum(bmi_index_cat == 3, na.rm = TRUE),
+  prop.class1 = sum(bmi_index_cat == 4, na.rm = TRUE),
+  prop.class2 = sum(bmi_index_cat == 5, na.rm = TRUE),
+  prop.class3 = sum(bmi_index_cat == 6, na.rm = TRUE),
+  prop.others = sum(bmi_index_cat %in% c(1,2,0), na.rm = TRUE),
+)
+```
+9. comorbidities
+```{r}
+names(pop)
+pop %>% 
+ group_by(glp1_user) %>% 
+  summarise(
+  total.pop = n(),
+  prop.dm = sum(cc_t2db == 1, na.rm = TRUE) / n() * 100,
+  prop.htn = sum(cc_htn == 1, na.rm = TRUE) / n() * 100,
+  prop.osa = sum(cc_osa == 1, na.rm = TRUE) / n() * 100,
+  prop.dyslip = sum(cc_dyslip == 1, na.rm = TRUE) / n() * 100,
+  prop.liver = sum(cc_liver == 1, na.rm = TRUE) / n() * 100,
+  prop.pos = sum(cc_pos == 1, na.rm = TRUE) / n() * 100,
+  prop.hf = sum(cc_hf == 1, na.rm = TRUE) / n() * 100
+)
+# count 
+pop %>% 
+ #group_by(glp1_user) %>% 
+  summarise(
+  prop.dm = sum(cc_t2db == 1, na.rm = TRUE),
+  prop.htn = sum(cc_htn == 1, na.rm = TRUE),
+  prop.osa = sum(cc_osa == 1, na.rm = TRUE),
+  prop.dyslip = sum(cc_dyslip == 1, na.rm = TRUE),
+  prop.liver = sum(cc_liver == 1, na.rm = TRUE),
+  prop.pos = sum(cc_pos == 1, na.rm = TRUE),
+  prop.hf = sum(cc_hf == 1, na.rm = TRUE)
+)
+
+chisq.test(table(pop$cc_t2db, pop$glp1_user))
+chisq.test(table(pop$cc_htn, pop$glp1_user))
+chisq.test(table(pop$cc_osa, pop$glp1_user))
+chisq.test(table(pop$cc_dyslip, pop$glp1_user))
+chisq.test(table(pop$cc_liver, pop$glp1_user))
+chisq.test(table(pop$cc_pos, pop$glp1_user))
+chisq.test(table(pop$cc_hf, pop$glp1_user))
+```
+10. medications
+```{r}
+# category for anti dm medications
+pop <- pop %>%
+  mutate(
+    cm_dm = ifelse(cm_metformin ==1 | cm_dpp4 ==1 | cm_sglt2 ==1 | cm_su ==1 | cm_thiaz ==1 | cm_insul == 1,1,0)
+  )
+
+pop %>% group_by(glp1_user) %>% summarise(
+  total.pop = n(),
+  prop.anti_dm = sum(cm_dm == 1, na.rm = TRUE) / n() * 100,
+  prop.cm_ob = sum(cm_ob == 1, na.rm = TRUE) / n() * 100,
+  prop.cm_depres = sum(cm_depres == 1, na.rm = TRUE) / n() * 100
+)
+#count
+pop %>% 
+  #group_by(glp1_user) %>% 
+  summarise(
+  prop.anti_dm = sum(cm_dm == 1, na.rm = TRUE),
+  prop.cm_ob = sum(cm_ob == 1, na.rm = TRUE),
+  prop.cm_depres = sum(cm_depres == 1, na.rm = TRUE)
+)
+
+chisq.test(table(pop$cm_dm, pop$glp1_user))
+chisq.test(table(pop$cm_ob, pop$glp1_user))
+chisq.test(table(pop$cm_depres, pop$glp1_user))
+```
+11. set the reference group for further analysis
+```{r}
+# age cat
+pop$age_cat <- as.factor(pop$age_cat)
+pop$age_cat <- relevel(pop$age_cat, ref ="1")
+
+# sex
+pop$sex <- as.factor(pop$sex)
+pop$sex <- relevel(pop$sex, ref ="M")
+
+# race
+pop$race <- as.factor(pop$race)
+pop$race <- relevel(pop$race, ref = "White")
+
+# ethnicity
+pop$ethnicity <- as.factor(pop$ethnicity)
+pop$ethnicity <- relevel(pop$ethnicity, ref = "Not Hispanic or Latino")
+
+# marital
+pop$marital_status <- as.factor(pop$marital_status)
+pop$marital_status <- relevel(pop$marital_status, ref = "Single")
+
+# region
+pop$patient_regional_location <- as.factor(pop$patient_regional_location)
+pop$patient_regional_location <- relevel(pop$patient_regional_location, ref = "West")
+
+# bs type
+pop$bs_type <- as.factor(pop$bs_type)
+pop$bs_type <- relevel(pop$bs_type, ref = "rygb")
+
+# bmi index | ref = Healthy weight
+pop$bmi_index_cat <- as.factor(pop$bmi_index_cat)
+pop$bmi_index_cat <- relevel(pop$bmi_index_cat, ref = "2")
+
+pop$time_to_glp1_cat <- as.factor(pop$time_to_glp1_cat)
+```
+*calculate row percentage for the comparison*
+```{r}
+table(df$bs_type)
+
+df %>%
+  summarise(
+    glp1.female = sum(sex=="F" & glp1_user ==1, na.rm=TRUE) / sum(sex=="F", na.rm=TRUE) *100,
+    glp1.male = sum(sex=="M" & glp1_user ==1, na.rm=TRUE) / sum(sex=="M", na.rm=TRUE) *100,
+    glp1.white = sum(race=="White" & glp1_user ==1, na.rm=TRUE) / sum(race=="White", na.rm=TRUE) *100,
+    glp1.black = sum(race=="Black or African American" & glp1_user ==1, na.rm=TRUE) / sum(race=="Black or African American", na.rm=TRUE) *100,
+    glp1.rygb = sum(bs_type=="rygb" & glp1_user ==1, na.rm=TRUE) / sum(bs_type=="rygb", na.rm=TRUE) *100,
+    glp1.sg = sum(bs_type=="sg" & glp1_user ==1, na.rm=TRUE) / sum(bs_type=="sg", na.rm=TRUE) *100
+  )
+```
+
+12. histogram with the number of initiators
+```{r}
+# proportion table 
+data <- pop %>% filter(time_to_glp1_cat != 0)
+prop.table(table(data$time_to_glp1_cat))
+
+table_data <- data %>%
+  group_by(time_to_glp1_cat) %>%
+  summarise(
+    total.glp1 = 6067,
+    number.glp1 = n(),
+    prop.glp1 = n()/total.glp1*100) 
+
+library(ggplot2)
+library(dplyr)
+
+# Ensure prop.glp1 is formatted as a percentage string
+table_data <- table_data %>%
+  mutate(
+    prop.glp1 = sprintf("%.2f%%", prop.glp1),  # Format as percentage
+    label_text = paste0(number.glp1, "\n(", prop.glp1, ")")  # Add line break using "\n"
+  )
+
+# Create the plot with labels in two rows
+table <- ggplot(table_data, aes(x = factor(time_to_glp1_cat), y = 2, label = label_text)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.33) +  # Adjust text position
+  labs(
+    title = "Among Total GLP-1 Users, Proportion (%) of GLP-1 Users by Year",
+    x = "Time to GLP-1 Initiation",
+    y = ""  # Remove y-axis label
+  ) +
+  theme_classic() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size = 12)
+  )
+
+
+# bar graph for the time_to_glp1_cat
+barplot <- ggplot(pop %>% dplyr::filter(time_to_glp1_cat != 0), aes(x = time_to_glp1_cat)) +
+  geom_bar(fill = "blue") +
+  theme_classic() +
+  labs(
+    x = "Time to GLP-1 initiation",
+    y = "Count",
+    title = "Distribution of Time to GLP-1 Categories among GLP-1 users"
+  ) + 
+  scale_x_discrete(
+    breaks = c(1,2,3,4,5,6,7,8),  # Specify positions of the intervals
+    labels = c("within 1 year", "in 1-2 year", "in 2-3 year", "in 3-4 year", "in 4-5 year", "in 5-6 year", "in 6-7 year", "after 7 year")  # Custom labels
+  ) 
+combined_plot <- (barplot /table) + plot_layout(heights = c(3.5, 2))
+print(combined_plot)
+```
+13. post_DM status
+```{r}
+# only remain dm code | rearrange by the date of diagnosis
+dm <- como %>% filter(str_detect(code, "^E11|^250\\."))
+dm <- dm %>% arrange(patient_id, date) %>% select(patient_id, date) %>% mutate(dm_status=1) %>% rename(dm_date = date)
+dm$dm_date <- ymd(dm$dm_date)
+
+# merge with the study population - sg & rygb patients
+names(dm)
+dm <- df %>% left_join(dm, by = "patient_id")
+dm <- dm %>% filter(bs_type == "rygb" | bs_type == "sg")
+names(dm)
+
+# post dm
+post.dm <- dm %>% filter(dm_date >= bs_date) %>%
+  rename(post.dm = dm_status)
+
+post.dm <- post.dm %>%
+  group_by(patient_id) %>% 
+  slice(1) %>% ungroup()
+
+df <- df %>% left_join(post.dm %>% select(patient_id, post.dm), by = "patient_id")
+df <- df %>% mutate(post.dm = ifelse(is.na(post.dm), 0, post.dm)) %>% rename(pre.dm = cc_diabetes)
+
+df <- df %>% mutate(cc_dm = ifelse(pre.dm ==1 | post.dm ==1, 1, 0))
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(df, plot=FALSE)
+
+print(df %>% select(patient_id, glp1_user, pre.dm, post.dm))
+table(df%>% filter(pre.dm==0) %>% pull(post.dm))
+
+# glp1 initiators
+df %>% filter(pre.dm ==0 & post.dm ==1) %>% 
+  summarise(
+    total = n(),
+    glp1 = sum(glp1_user ==1),
+    prop.glp1 = glp1 / total
+      )
+```
+13. category BMI
+```{r}
+nrow(pop %>% filter(glp1_user ==1))
+table(pop$bmi_index_cat)
+bmi <- pop %>%
+  filter(glp1_user ==0) %>%
+  group_by(bmi_index_cat) %>%
+  summarise(
+    prop = n()/97109*100
+  )
+bmi
+```
+
+14. save the modified file
+```{r}
+saveRDS(pop, "studypopulation.rds")
+```
+
+# proportion of glp1 initiation in table1
+
+```{r}
+pop <- readRDS("studypopulation.rds")
+
+# sex
+pop %>%
+  filter(sex == "M") %>%
+  summarise(
+    total = n(),
+    n_glp1_user = sum(glp1_user == 1, na.rm = TRUE),
+    prop_glp1 = n_glp1_user / total * 100
+  ) %>%
+  print()
+
+# race
+table(pop$race)
+pop %>%
+  filter(race == "Black or African American") %>%
+  summarise(
+    total = n(),
+    n_glp1_user = sum(glp1_user == 1, na.rm = TRUE),
+    prop_glp1 = n_glp1_user / total * 100
+  ) %>%
+  print()
+
+# bs type
+pop %>%
+  filter(bs_type == "sg") %>%
+  summarise(
+    total = n(),
+    n_glp1_user = sum(glp1_user == 1, na.rm = TRUE),
+    prop_glp1 = n_glp1_user / total * 100
+  ) %>%
+  print()
+```
+
+
+
+
+
+

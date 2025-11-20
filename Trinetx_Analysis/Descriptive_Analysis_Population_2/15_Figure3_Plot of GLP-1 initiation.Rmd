@@ -1,0 +1,242 @@
+---
+title: "Figure4_Plot of GLP-1 initiation"
+output: html_document
+date: "2024-11-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+#library(gcookbook)
+
+df <- readRDS("studypopulation.rds")
+#glp1 <- read_sas("glp1_users_15769_v02.sas7bdat")
+
+glp1 <- df %>% filter(glp1_user ==1)
+glp1 <- glp1 %>% 
+  mutate(glp1.year = year(glp1_initiation_date))
+nrow(glp1) #15749
+table(glp1$Molecule)
+prop.table(table(glp1$Molecule))
+
+# exclude 2025
+glp1 <- glp1 %>% filter(glp1.year != 2025)
+
+# correct the typo
+glp1 <- glp1 %>%
+  mutate(Molecule = recode(Molecule, "Lixisenatid" = "Lixisenatide"))
+
+table(glp1$glp1.year)
+prop.table(table(glp1$glp1.year))
+```
+## preprocessing dataset
+```{r}
+# create the denominators for the each year
+total_by_year <- glp1 %>%
+  group_by(glp1.year) %>%
+  summarise(
+    total_by_year = n()
+  ) %>% ungroup() %>%
+  print()
+
+# create the numerators for the each year
+glp1_by_year <- glp1 %>%
+  group_by(glp1.year, Molecule) %>%
+  summarise(
+    glp1_by_year = n()
+  ) %>% ungroup() %>%
+  print()
+
+# join two dataset + calculate % by year
+trend <- glp1_by_year %>%
+  left_join(total_by_year, by ="glp1.year") %>%
+  mutate(
+    share_by_year = glp1_by_year / total_by_year * 100
+  ) %>%
+  print()
+head(trend)
+# summary
+trend %>% summarise(
+  total = sum(glp1_by_year),
+  prop.sema = sum(glp1_by_year[Molecule == "Semaglutide"]) / total *100
+)
+```
+## plot the Figure 3
+```{r}
+8+180+1+2969+195+1630
+1630	/4983 #(0.3271122)
+
+38+5+26+520+587
+587/1176 # 0.4991497
+
+# only present semaglutide, liraglutide, dulaglutide, tirzepatide
+# exclude exenatide and lixisenatide.
+trend_selected <- trend %>%
+  filter(Molecule %in% c("Semaglutide", "Liraglutide", "Dulaglutide", "Tirzepatide"))
+head(trend_selected)
+
+(385+974+1134+1073+901)/35286
+1/8
+# reorder the molecule factors
+last_year <- max(trend_selected$glp1_init_year)
+order_last_year <- trend_selected %>%
+  filter(glp1.year == last_year) %>%
+  arrange(desc(share_by_year)) %>%
+  pull(Molecule)
+
+trend_selected <- trend_selected %>%
+  mutate(Molecule = factor(Molecule, levels = order_last_year))
+
+# annotate the first year and the last year
+trend_2 <- trend_selected %>%
+  group_by(Molecule) %>%
+  summarize(
+    first_year = min(glp1.year),
+    last_year = max(glp1.year)
+  ) %>% ungroup()
+head(trend_2)
+
+annotations <- trend_selected %>%
+  inner_join(trend_2, by = "Molecule") %>%
+  group_by(Molecule) %>%
+  filter(glp1.year %in% c(first_year, last_year)) %>% ungroup()
+
+annotations <- annotations %>%
+  mutate(
+    vjust = if_else(Molecule == "Tirzepatide", 5, -1.5),  # Adjust vertical position for Molecule A
+    hjust = if_else(Molecule == "Tirzepatide", 0.5, 0),     # Adjust horizontal position for Molecule A, if needed
+    share = paste0(round(share_by_year, 1),"%") 
+  )
+
+# plotting
+ggplot(data = trend_selected, aes(x = glp1.year, y = share_by_year, color = Molecule, group = Molecule)) +
+  geom_line(size = 1.2) +
+  geom_point(size =3, shape = 20) +
+  labs(x="Calender Year",
+       y="Percentage of GLP-1 initiation (%)",
+       title = "Trends in post bariatric surgery GLP-1 initiation, by types of GLP-1's",
+       color ="GLP-1's type") + 
+  scale_x_continuous(breaks = unique(trend$glp1_init_year)) +  # Show all years on x-axis
+  theme_classic() +
+  theme(plot.title = element_text(face = "bold", size = 13)) +
+  geom_text(
+    data = annotations %>% filter(Molecule != "Tirzepatide"),
+    aes(label = share),  # Format label to 1 decimal
+    vjust = -1.5,  # Adjust vertical position of the text
+    size = 4,
+    fontface = "bold") +
+  geom_text(
+    data = annotations %>% filter(Molecule == "Tirzepatide"),
+    aes(label = share),
+    vjust = 2.5,
+    size = 4,
+    fontface = "bold"
+  ) 
+```
+## plotting all values
+```{r}
+head(trend)
+lira <- trend %>%
+  filter(Molecule == "Liraglutide")  %>%
+  print()
+```
+
+## plot bar graph with total number od initiation by year
+```{r}
+print(trend)
+trend$Molecule <- factor(trend$Molecule, levels = c("Tirzepatide", "Semaglutide", "Liraglutide", "Dulaglutide", "Lixisenatide", "Exenatide"))
+
+# stacked bar graph
+bar <- ggplot(data = trend, aes(x = glp1.year, y = glp1_by_year, fill = Molecule)) +
+  geom_col() +
+  labs(x="Calender Year",
+      y="Number of GLP-1 initiation",
+      fill = "GLP-1's Type") +
+  scale_x_continuous(breaks = unique(trend$glp1.year)) +  # Show all years on x-axis
+  scale_fill_manual(values = c(
+    "Tirzepatide" = "purple", 
+    "Semaglutide" = "orange", 
+    "Liraglutide" = "skyblue", 
+    "Dulaglutide" = "navyblue", 
+    "Lixisenatide" = "grey", 
+    "Exenatide" = "darkgrey"  # Add as many as needed
+  )) +
+  theme_classic()
+
+bar
+
+# table with total counts
+total_by_year
+
+count_table <- total_by_year %>%
+  ggplot(aes(x = glp1.year, y = 1, label = total_by_year)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Total Number of GLP-1 Initiation") +
+  theme_classic2() +
+  scale_x_continuous(breaks = unique(total_by_year$glp1.year),  # Add each year to x-axis
+                     labels = unique(total_by_year$glp1.year)) +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 10, angle = 0, vjust = 0.5),  # Customize x-axis text
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size = 12)
+  )
+print(count_table)
+
+
+## combine
+library(patchwork)
+combined_plot3 <- (bar / count_table) + plot_layout(heights = c(4.5, 0.5))
+print(combined_plot3)
+
+ggsave("Bar_glp1_count.png", plot = combined_plot3, width = 7, height = 5, dpi = 300, bg = "white")
+
+ggsave("Figure3.pdf", plot = combined_plot3, width = 7, height = 5, units = "in", device = cairo_pdf, bg = "white")
+```
+
+```{r}
+# Summarize count by molecule and year
+count_by_molecule <- trend %>%
+  group_by(glp1.year, Molecule) %>%
+  summarise(count = sum(glp1_by_year), .groups = "drop")
+
+# Plot text-based table
+count_table <- ggplot(count_by_molecule, aes(x = glp1.year, y = Molecule, label = count)) +
+  geom_text(size = 3.5) +
+  labs(title = "GLP-1 Initiation Counts by Molecule and Year") +
+  theme_classic() +
+  scale_x_continuous(breaks = unique(count_by_molecule$glp1.year)) +
+  theme(
+    axis.title = element_blank(),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0, size = 12)
+  )
+
+print(count_table)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,309 @@
+---
+title: "12_Primary_Analysis_COX_Fig2"
+output: html_document
+date: "2025-02-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Setting
+```{r}
+#Install the required packages if needed
+if (!require("tidyverse")) install.packages("tidyverse")
+if (!require("haven")) install.packages("haven")  #This one is to import the Stata data
+if (!require("janitor")) install.packages("janitor")  #This one is for tidy tables
+if (!require("survival")) install.packages("survival")  # Basic survival analysis
+if (!require("survminer")) install.packages("survminer")  #This one is for survival plots
+if (!require("gtsummary")) install.packages("gtsummary")  # This is a powerful package for summarizing data
+if (!require("broom")) install.packages("broom")
+if (!require("lubridate")) install.packages("lubridate")
+
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+
+df <- readRDS("studypopulation.rds")
+```
+### 1. Set variables for the survival analysis
+```{r}
+# address Null
+df$glp1_initiation_date <- ifelse(is.na(df$glp1_initiation_date), Inf, df$glp1_initiation_date)
+df$death_date <- ifelse(is.na(df$death_date), Inf, df$death_date)
+
+# generate 'study end date' + numeric
+df$study_end_date <- as.numeric(as.Date("2025-05-31"))
+df$bs_date <- as.numeric(df$bs_date)
+df$glp1_initiation_date <- as.numeric(df$glp1_initiation_date)
+df$death_date <- as.numeric(df$death_date)
+df$entry <- 0
+
+# rename
+df <- df %>% rename(glp1 = glp1_user)
+
+# exit_date
+df <- df %>% 
+  mutate(
+    followup.end.date = pmin(glp1_initiation_date, death_date, study_end_date),
+    glp1 = ifelse(glp1_initiation_date > followup.end.date, 0, glp1),
+    time.for.glp1 = followup.end.date - bs_date
+    )
+names(df)
+summary(df$time.for.glp1)
+2754/365
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(df, plot=FALSE)
+```
+### 2. set object for survival analysis
+```{r}
+# Set the data as survival data
+surv_obj <- Surv(df$entry, df$time.for.glp1, df$glp1)
+summary(surv_obj)
+```
+### 3. Descriptive analysis with the KM curve
+1. Cumulative incidence of GLP-1 initiation after bariatric surgery
+```{r}
+model_0 <- survfit(surv_obj ~ 1, data=df)
+km_null <- ggsurvplot(model_0, 
+           conf.int = TRUE, 
+           risk.table = FALSE,
+           risk.table.height = 0.4,  
+           risk.table.fontsize = 3.5,
+           risk.table.y.text.col = FALSE,
+           title = "A. Overall",
+           xlab = "Follow-up time [years]",
+           ylab = "Cumulative Incidence",
+           xscale = 365.25, 
+           break.x.by=365,
+           break.y.by=0.1,
+           ylim=c(0, 0.3),
+           censor=FALSE,
+           fun="event",
+           tables.y.text = FALSE,
+           add.all.events = FALSE
+           )
+km_null 
+```
+2. stratified by bs type
+```{r}
+model_1 <- survfit(surv_obj ~ bs_type, data=df)
+# for scaling x-axis values to years
+custom_x_labels <- function(x) {
+  paste0(round(x / 365.25, 1), " years")
+}
+
+# cumulative incidence curve (w/ Scale x-axis values to years)
+km_type <- ggsurvplot(model_1, 
+           conf.int = TRUE, 
+           risk.table = FALSE,
+           risk.table.height = 0.4,  
+           risk.table.fontsize = 3.5,
+           risk.table.y.text.col = TRUE, 
+           title = "B. Stratified by Type of Bariatric Procedures",
+           xlab = "Follow-up time [years]",
+           ylab = "Cumulative Incidence",
+           #legend.lab = c("SG", "AGB", "BPD", "RYGB", "SADI_S"),
+           legend.title = "BS type",
+           xscale = 365.25, 
+           break.x.by=365.25,
+           break.y.by=0.1,
+           ylim=c(0, 0.3),
+           xlim = c(0, 10*365.25),
+           censor=FALSE,
+           fun="event")
+           #palette = c("red", "green","purple", "navyblue", "orange"))
+km_type
+```
+2. diabetes
+```{r}
+model_2 <- survfit(surv_obj ~ pre.dm, data=df)
+# for scaling x-axis values to years
+custom_x_labels <- function(x) {
+  paste0(round(x / 365.25, 1), " years")
+}
+
+# cumulative incidence curve (w/ Scale x-axis values to years)
+km_dm <- ggsurvplot(model_2, 
+           conf.int = TRUE, 
+           risk.table = FALSE,
+           risk.table.height = 0.4,  
+           risk.table.fontsize = 3.5,
+           risk.table.y.text.col = TRUE, 
+           title = "Stratified by having baseline diabetes",
+           xlab = "Follow-up time [years]",
+           ylab = "Cumulative Incidence",
+           legend.lab = c("No Diabetes", "Diabetes"),
+           legend.title = "Baseline Diabetes Status: ",
+           xscale = 365.25, 
+           break.x.by=365,
+           break.y.by=0.1,
+           ylim=c(0, 0.55),
+           censor=FALSE,
+           fun="event")
+           #palette = c("red", "green","purple", "navyblue", "orange"))
+km_dm
+```
+
+2. cumulative incidence table
+```{r}
+# Calculate the cumulative incidence at the specific time points
+time_points <- c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10) * 365.25
+summary_model <- summary(model_0, times = time_points)
+
+# Extract the time points and cumulative incidence (1 - survival probability) as percentages
+cum_incidence_data <- data.frame(
+  time = time_points / 365.25,    # Convert time to years
+  cum_incidence = round((1 - summary_model$surv) * 100 , 2) # Cumulative incidence as a percentage
+)
+
+# table 
+cum_incidence_table <- cum_incidence_data %>%
+  mutate(Cumulative_Incidence = sprintf("%.2f%%", cum_incidence)) %>%  # Format as percentages
+  ggplot(aes(x = factor(time), y = 1, label = Cumulative_Incidence)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Cumulative Incidence (%) by Year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+print(cum_incidence_table)
+```
+3, incidence rate table
+```{r}
+calculate_ir <- function(df, year) {
+  if (year == 0) {
+    return(data.frame(
+      TimeatRisk = 0,
+      events = 0,
+      IncidenceRate = 0,
+      NumberofRows = 0,
+      NumberofSubjects = 0
+    ))
+  }
+  
+  year_minus_one <- year - 1
+  
+  df %>% 
+    filter(365.25 * year_minus_one <= time.for.glp1) %>%
+    summarise(
+      TimeatRisk = sum(time.for.glp1 - entry)/365.25,
+      events = sum(glp1[365.25 * year_minus_one <= time.for.glp1 & 
+                            time.for.glp1 < 365.25 * year]),
+      IncidenceRate = (events/TimeatRisk)*1000,
+      NumberofRows = n(),
+      NumberofSubjects = n_distinct(patient_id)
+    )
+}
+
+# table
+create_ir_table <- function(ir_data) {
+  ir_data %>%
+    mutate(
+      year = 0:10,
+      IncidenceRate = sprintf("%.2f", IncidenceRate)
+    ) %>%
+    ggplot(aes(x = factor(year), y = 1, label = IncidenceRate)) +
+    geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) +
+    labs(title = "Incidence Rate [1,000 person-year] at Year") +
+    theme_classic2() +
+    theme(
+      axis.title = element_blank(),
+      axis.text.y = element_blank(),
+      #axis.text.x = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(vjust = 0, hjust = 0.01, size = 12)
+    )
+}
+
+# Calculate incidence rates for years 0-8
+years <- 0:10
+ir_list <- lapply(years, function(year) calculate_ir(df, year))
+ir <- do.call(rbind, ir_list) # Combine all results
+
+ir_table <- create_ir_table(ir)
+print(ir_table)
+```
+4. combine plot -> Figure 2
+```{r}
+km.curve <- ggsurvplot_combine(
+  fit = list(
+    "Overall" = survfit(Surv(time.for.glp1, glp1) ~ 1, data = df),
+    "Stratified" = survfit(Surv(time.for.glp1, glp1) ~ bs_type, data = df)
+  ),
+  data = df,  # Ensure a common dataset is provided
+  conf.int = TRUE, 
+  risk.table = FALSE,
+  #title = "Cumulative Incidence Curves",
+  xlab = "Follow-up time [years]",
+  ylab = "Cumulative Incidence",
+  xscale = 365.25, 
+  break.x.by = 365.25,
+  break.y.by = 0.1,
+  ylim = c(0, 0.3),
+  xlim = c(0, 10*365.25),
+  censor = FALSE,
+  fun = "event",
+  legend.title = "Cohort: ",
+  legend.lab = c("Overall", "RYGB patients", "SG patients")
+)
+km.curve
+
+# combine the plots
+library(patchwork)
+combined_plot <- (km.curve$plot / cum_incidence_table / ir_table) + plot_layout(heights = c(3.5, 0.6, 0.6))
+print(combined_plot)
+
+
+ggsave("Figure2_CIcurve.pdf", plot = combined_plot, width = 7, height = 5, bg = "white")
+
+# for visual abstract
+km.curve$plot <- km.curve$plot +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA),
+    plot.background = element_rect(fill = "transparent", color = NA),
+    legend.background = element_rect(fill = "transparent", color = NA)
+  )
+
+# Save with transparent background
+ggsave("Figure2_CIcurve_2.png",
+       plot = km.curve$plot,
+       width = 7,
+       height = 3,
+       dpi = 300,
+       bg = "transparent")
+
+ggsave("Figure2.pdf", plot = combined_plot, width = 7, height = 5, units = "in", device = cairo_pdf, bg = "white")
+```
+### 4. Cox regression model
+```{r}
+df$bmi_index_cat <- as.factor(df$bmi_index_cat)
+df$bmi_index_cat <- relevel(df$bmi_index_cat, ref = "3")
+
+names(df)
+cox_model <- coxph(Surv(df$time.for.glp1, df$glp1) ~ age_at_bs + sex + race + ethnicity + marital_status + patient_regional_location +  bs_type + bmi_index_cat + cc_t2db + cc_htn + cc_dyslip + cc_osa + cc_hf + cc_liver + cc_ckd + cc_pos + cc_gerd  + cm_dm + cm_ob + cm_depres + cm_psycho + cm_convul, data=df)
+
+#cox_model <- coxph(Surv(df$time.for.glp1, df$glp1) ~  cc_diabetes, data=df)
+summary(cox_model)
+
+#summary(model_diabetes)
+summary_model <- summary(cox_model) 
+
+# table
+table2.1 <- cbind(exp(summary_model$coefficients[, "coef"]), summary_model$conf.int[, "lower .95"], summary_model$conf.int[, "upper .95"])
+table2.1 
+
+table2.2 <- cbind(paste0(format(exp(summary_model$coefficients[, "coef"]), digits=2, nsmall=2), " (", format(summary_model$conf.int[, "lower .95"], digits=1, nsamll=2), ", ", format(summary_model$conf.int[, "upper .95"], digits=2, nsmall=2), ")"))
+table2.2 
+```
+

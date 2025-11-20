@@ -1,0 +1,115 @@
+---
+title: "efigure1_number_of_GLP-1_initiators"
+output: html_document
+date: "2024-11-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## set up
+```{r}
+install.packages("gridExtra")
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(ggplot2)
+library(gridExtra)
+
+# loading dataset
+df <- readRDS("studypopulation.rds") # study population
+nrow(df)
+names(df)
+N <- df %>% filter(glp1_user == 1)
+nrow(N)
+
+
+glp1 <- df %>% filter(glp1_user == 1)
+n_distinct(glp1$patient_id) # 15749
+nrow(glp1)
+
+glp1 <- glp1 %>%
+  mutate(
+    time.to.glp1 = case_when(
+      365*0 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*1 ~ "within 1yr",
+      365*1 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*2 ~ "in 1-2 year",
+      365*2 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*3 ~ "in 2-3 year",
+      365*3 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*4 ~ "in 3-4 year",
+      365*4 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*5 ~ "in 4-5 year",
+      365*5 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*6 ~ "in 5-6 year",
+      365*6 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*7 ~ "in 6-7 year",
+      365*7 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*8 ~ "in 7-8 year",
+      365*8 <= (glp1_initiation_date - bs_date)  ~ "after 8 year"
+    )
+  ) %>%
+  mutate(
+    time.to.glp1 = factor(time.to.glp1, 
+                          levels = c("within 1yr", "in 1-2 year", "in 2-3 year", 
+                                     "in 3-4 year", "in 4-5 year", "in 5-6 year", 
+                                     "in 6-7 year", "in 7-8 year", "after 8 year"))
+  )
+
+glp1$time.to.glp1 <- as.factor(glp1$time.to.glp1)
+table(glp1$time.to.glp1)
+
+glp1 %>% filter(time.to.glp1 == "in 2-3 year") %>% count()
+952  + 2439      +   2709     +    2373 +2086  +       1878  +       1439     +    1053 +820
+
+```
+# set up the dataset for the histogram
+```{r}
+table_data <- glp1 %>%
+  group_by(time.to.glp1) %>%
+  summarise(
+    total.glp1 = 15749,
+    number.glp1 = n(),
+    prop.glp1 = n()/total.glp1*100)
+
+plot <- ggplot(data = table_data, aes(x = time.to.glp1, y = number.glp1)) +
+  geom_col(fill = "gray") + 
+  labs(x = "Time to GLP-1 initiation after bariatric surgery",
+       y = "The number of GLP-1 initiators") +
+  scale_x_discrete(limits = sort(unique(table_data$time.to.glp1))) +  # Corrected object reference
+  theme_classic()
+
+plot
+
+table_data <- table_data %>%
+  mutate(
+    prop.glp1 = sprintf("%.2f%%", prop.glp1),  # Format as percentage
+    label_text = paste0(number.glp1, "\n(", prop.glp1, ")")  # Add line break using "\n"
+  )
+
+# Table data (summarize counts for each year)
+table <- table_data %>%
+  ggplot(aes(x = time.to.glp1, y = 0.3, label = label_text)) +
+  geom_text(size = 3.5, vjust = 0.5, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Number of GLP-1 initiators in each year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+
+table
+
+combined_plot <- grid.arrange(plot, table, ncol = 1, heights = c(5, 2)) # Adjust heights if necessary
+
+ggsave("eFigure2_his.pdf", plot = combined_plot, width = 7, height = 4, dpi = 300, bg = "white")
+```
+## simple calculattion
+```{r}
+(385+974)/6067
+(1134+1073)/6067
+(901+757)/6067
+(513+330)/6067
+```
+

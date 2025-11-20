@@ -1,0 +1,85 @@
+---
+title: "15_TimevaryingDM"
+output: html_document
+date: "2025-02-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## setting
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+library(stringr)
+library(lubridate)
+
+df <- readRDS("studypopulation.rds")
+como <- read_sas("bs_user_comorbidity_v00.sas7bdat")
+
+# only remain dm code | rearrange by the date of diagnosis
+dm <- como %>% filter(str_detect(code, "^E11|^250\\."))
+dm <- dm %>% arrange(patient_id, date) %>% select(patient_id, date) %>% mutate(dm_status=1) %>% rename(dm_date = date)
+dm$dm_date <- ymd(dm$dm_date)
+
+# merge with the study population - sg & rygb patients
+dm <- df %>% left_join(dm, by = "patient_id")
+
+# post dm
+post.dm <- dm %>% filter(dm_date >= bs_date & dm_date < bs_date + 365) %>%
+  rename(post.dm = dm_status)
+
+post.dm <- post.dm %>%
+  group_by(patient_id) %>% 
+  slice(1) %>% ungroup()
+
+df <- df %>% left_join(post.dm %>% select(patient_id, post.dm), by = "patient_id")
+df <- df %>% mutate(post.dm = ifelse(is.na(post.dm), 0, post.dm))
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(df, plot=FALSE)
+
+nrow(df)
+```
+###
+
+```{r}
+print(df %>% select(patient_id, glp1_user, pre.dm, post.dm))
+
+table(df%>% filter(pre.dm==0) %>% pull(post.dm))
+
+1702/17376
+2648/17910
+
+names(df)
+
+# glp1 initiators
+df %>% filter(pre.dm ==0 & post.dm ==1) %>% 
+  summarise(
+    total = n(),
+    glp1 = sum(glp1_user ==1),
+    prop.glp1 = glp1 / total
+      )
+```
+## merge the post.dm with the study population
+```{r}
+names(df)
+nrow(df)
+
+saveRDS(df, "studypopulation.rds")
+```
+
+
+
+
+
+
+

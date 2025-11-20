@@ -1,0 +1,1088 @@
+---
+title: "Project3_bmi_trajectory_MinjiKim"
+output: html_document
+date: "2024-11-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## setting
+```{r}
+#install.packages("rjags", type = "source")
+#install.packages("JM", type = "source") # for joint model
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmtest)
+library(patchwork)
+library(splines)
+library(nlme)
+library(clubSandwich)
+library(rjags)
+library(JM)
+library(lmerTest)
+library(dplyr)
+library(lubridate)
+
+# long dataset for logitudinal analysis
+df_bmi <- readRDS("post_bmi_studypopulation_2ndanalysis.rds")
+# time-to
+df <- readRDS("studypopulation.rds") # 112858
+```
+# cleaning
+```{r}
+# Ensure bmi_measurement_date is in Date format
+df_bmi <- df_bmi %>% mutate(bmi_date = as.Date(bmi_date))
+
+# Sort data by patient_id and date
+df_bmi <- df_bmi %>%
+  arrange(patient_id, bmi_date) %>%
+  group_by(patient_id) %>%
+  mutate(
+    time_diff_months = as.numeric(difftime(bmi_date, lag(bmi_date), units = "days")) / 30.44,
+    bmi_diff = bmi - lag(bmi),
+    bmi_change_per_month = bmi_diff / time_diff_months
+  ) %>%
+  ungroup()
+
+# Exclude outliers where BMI change exceeds 4 per month
+df_bmi <- df_bmi %>%
+  filter(is.na(bmi_change_per_month) | abs(bmi_change_per_month) <= 5)
+
+# Print summary of removed outliers
+bmi_outliers <- df_bmi %>%
+  filter(!is.na(bmi_change_per_month) & abs(bmi_change_per_month) > 5)
+
+cat("Total Outliers Removed:", nrow(bmi_outliers), "\n") # 0
+
+# remove the covariates
+df_bmi <- df_bmi %>% dplyr::select(- time_diff_months, - bmi_diff, - bmi_change_per_month, -bmi_index, -glp1_initiation_date, -death_date)
+
+df_bmi <- df_bmi %>% filter(!is.na(bs_type)) # remove 15 individuals 
+
+df_bmi <- df_bmi %>% rename(glp1 = glp1_user)
+# exploring outcome variable (BMI)
+hist(df_bmi$bmi)
+
+# check missingness
+mice::md.pattern(df_bmi, plot=FALSE)
+```
+
+
+# 1. Longitudinal data analysis component
+
+Model: linear mixed model with natual spline term
+Data frame: long format
+
+### 1.1. data preprocessing 
+```{r}
+# make continous time variable and indicator for exposure
+df_bmi <- df_bmi %>% mutate(time = bmi_date - bs_date)
+df_bmi$time <- as.numeric(df_bmi$time)
+df_bmi$glp1 <- as.factor(df_bmi$glp1)
+df_bmi$time_to_glp1_cat <- as.factor(df_bmi$time_to_glp1_cat)
+
+# remove unappropriate data - BMI < 10
+df_bmi <- df_bmi %>% filter(bmi >= 10)
+
+# remain BMI only after index date
+df_bmi <- df_bmi %>% filter(bmi_date >= bs_date)
+nrow(df_bmi) # 1115993
+```
+### ### for removing the sudden drops, 
+For every current BMI, calculate {(current BMI – past BMI)/number of days between the two observations} * 365.25 and remove any current BMI that has greater absolute yearly change than x%, which depends on how you define an outlier. You can start with 75% - 100% and see if outliers disappear from the spaghetti plot and fit the models again.
+
+### remove individuals have only one BMI data point.
+```{r}
+# assess how many individuals have only one BMI data point?
+individual_counts <- df_bmi %>%
+  group_by(patient_id) %>%
+  summarise(row_count = n()) %>%  # Count rows per individual
+  filter(row_count == 1)
+num_individuals <- nrow(individual_counts)
+cat("Number of individuals with only one row:", num_individuals, "\n") # 736 
+
+# remove that individuals
+df_bmi <- df_bmi %>%
+  group_by(patient_id) %>%
+  filter(n() > 1) %>%  # Keep only individuals with more than one row
+  ungroup()            # Remove grouping for further operations
+nrow(df_bmi) # 1115257
+```
+### set several dataset for BMI measurements
+```{r}
+# with at least 3 points of BMI
+# remove that individuals
+df_bmi <- df_bmi %>%
+  group_by(patient_id) %>%
+  filter(n() > 1) %>%  # Keep only individuals with more than one row
+  ungroup() 
+```
+
+## OUTLIERS
+### calculate the mean and SD by individual - don't proceed
+```{r}
+df_bmi <- df_bmi %>%
+  group_by(patient_id) %>%
+  mutate(
+    mean = mean(bmi),
+    sd = sd(bmi)
+  )
+head(df_bmi)
+
+outliers <- df_bmi %>%
+  group_by(patient_id) %>%
+  filter(
+    bmi > mean(bmi, na.rm = TRUE) + 5 * sd(bmi, na.rm = TRUE) |
+    bmi < mean(bmi, na.rm = TRUE) - 5 * sd(bmi, na.rm = TRUE)
+  )
+nrow(outliers) # 97 with 5sd | 391 with 4 sd | 1890 with 3sd
+unique_patients <- length(unique(outliers$patient_id))
+print(unique_patients) # 89 individuals with 5sd | 337 with 4 sd | 1426 with 3sd
+
+89/15606*100  # 0.57%
+337/15606*100  # 2.16%
+1426/15606*100  # 9.14%
+
+# Extract unique patient IDs
+outliers_patients <- unique(outliers$patient_id)
+
+# Filter original dataset to include only outlier patients
+df_bmi_outliers <- df_bmi %>%
+  filter(patient_id %in% outliers_patients)
+
+unique_patients <- length(unique(df_bmi_outliers$patient_id))
+print(unique_patients) # 89
+head(df_bmi_outliers)
+```
+## outlier definition with more than 5 BMI per month
+```{r}
+head(df_bmi)
+
+# Ensure bmi_measurement_date is in Date format
+df_bmi <- df_bmi %>% mutate(bmi_date = as.Date(bmi_date))
+
+# Sort data by patient_id and date
+df_bmi <- df_bmi %>%
+  arrange(patient_id, bmi_date) %>%
+  group_by(patient_id) %>%
+  mutate(
+    time_diff_months = as.numeric(difftime(bmi_date, lag(bmi_date), units = "days")) / 30.44,
+    bmi_diff = bmi - lag(bmi),
+    bmi_change_per_month = bmi_diff / time_diff_months
+  ) %>%
+  ungroup()
+
+# Exclude outliers where BMI change exceeds 4 per month
+df_bmi_clean <- df_bmi %>%
+  filter(is.na(bmi_change_per_month) | abs(bmi_change_per_month) <= 5)
+
+# Print summary of removed outliers
+df_bmi_outliers <- df_bmi %>%
+  filter(!is.na(bmi_change_per_month) & abs(bmi_change_per_month) > 5)
+
+cat("Total Outliers Removed:", nrow(df_bmi_outliers), "\n")
+
+# View the cleaned dataset
+head(df_bmi_clean)
+```
+
+## make spagetti plot with the outliers
+```{r}
+df_bmi_outliers
+
+# plot with random subset
+set.seed(122)
+id_sel = sample(df_bmi_outliers$patient_id, 1)
+
+# total
+ggplot() +
+  geom_point(data=df_bmi_outliers[df_bmi_outliers$patient_id %in% id_sel, ], aes(x=time, y=bmi), alpha=0.7) +
+  geom_line(data=df_bmi_outliers[df_bmi_outliers$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=patient_id), alpha=0.5) +
+  theme_classic() +
+  ggtitle("Post-surgical BMI of patient with outliers [awCFE] ")  + 
+  xlab("Time (in year)") +
+  ylab("BMI") + 
+  scale_x_continuous(
+    breaks = seq(0, max(df_bmi$time_n, na.rm = TRUE), by = 365), 
+    labels = seq(0, max(df_bmi$time_n, na.rm = TRUE) / 365, by = 1)
+    )
+
+awCFE <- df_bmi %>% filter(patient_id == "awCFE")
+awCFE_out <- awCFE %>% filter(bmi < 20)
+view(awCFE)
+```
+### remove the row with the outliers from the original dataset
+```{r}
+df_bmi <- df_bmi %>%
+  anti_join(df_bmi_outliers, by = c("patient_id", "bmi", "bmi_date"))
+nrow(df_bmi)
+
+# remove the covariates
+df_bmi <- df_bmi %>% dplyr::select(- time_diff_months, - bmi_diff, - bmi_change_per_month)
+```
+### check
+```{r}
+# number of study population # 15618 <- glp1 users = 2460 | non-users = 13158
+unique_patients <- length(unique(df_bmi$patient_id[df_bmi$glp1 ==0]))
+print(unique_patients)
+
+# seperate database based on the GLP-1 user vs. non-users
+df_bmi_glp1 <- df_bmi %>%
+  filter(glp1 ==1) 
+
+df_bmi_non <- df_bmi %>%
+  filter(glp1 ==0)
+```
+
+### categorized
+```{r}
+table(df$time_to_glp1_cat)
+
+# use all 8 categories
+a <- df_bmi %>%
+  distinct(patient_id, time_to_glp1_cat)
+nrow(a)
+table(a$time_to_glp1_cat)
+
+df_bmi$time_to_glp1_cat <- as.factor(df_bmi$time_to_glp1_cat)
+
+# indicators : never | early | middle | late
+# time_to_glp1_cat2 == 0 for Never use (n=13158)
+# time_to_glp1_cat2 == 1 for Early use (within 2 years, n=511)
+# time_to_glp1_cat2 == 2 for Middle use (between 2-5 years, n=1182)
+# time_to_glp1_cat2 == 3 for Late use (after 5th years, n=767)
+
+df_bmi <- df_bmi %>% 
+  mutate(
+    time_to_glp1_cat2 = case_when(
+      time_to_glp1_cat == 0 ~ 0,
+      time_to_glp1_cat %in% c(1, 2) ~ 1,
+      time_to_glp1_cat %in% c(3,4,5) ~ 2,
+      time_to_glp1_cat %in% c(6,7,8) ~ 3
+    )
+  )
+print(df_bmi %>% dplyr::select(patient_id, time_to_glp1_cat,  time_to_glp1_cat2), n=10)
+
+df <- df %>% 
+  mutate(
+    time_to_glp1_cat2 = case_when(
+      time_to_glp1_cat == 0 ~ 0,
+      time_to_glp1_cat %in% c(1, 2) ~ 1,
+      time_to_glp1_cat %in% c(3,4,5) ~ 2,
+      time_to_glp1_cat %in% c(6,7,8) ~ 3
+    )
+  )
+print(df %>% dplyr::select(patient_id, time_to_glp1_cat,  time_to_glp1_cat2), n=10)
+
+df_bmi$glp1 <- as.factor(df_bmi$glp1)
+df_bmi$time_to_glp1_cat <- as.factor(df_bmi$time_to_glp1_cat)
+df_bmi$time_to_glp1_cat2 <- as.factor(df_bmi$time_to_glp1_cat2)
+
+# bar graph for the time_to_glp1_cat
+ggplot(a %>% dplyr::filter(time_to_glp1_cat != 0), aes(x = time_to_glp1_cat)) +
+  geom_bar(fill = "blue") +
+  geom_text(aes(label = ..count..), stat = "count", vjust = -0.5, colour = "black") +
+  theme_classic() +
+  labs(
+    x = "Time to GLP-1 Category",
+    y = "Count",
+    title = "Distribution of Time to GLP-1 Categories among GLP-1 users"
+  ) + 
+  scale_x_discrete(
+    breaks = c(1,2,3,4,5,6,7,8),  # Specify positions of the intervals
+    labels = c("within 1 year", "in 1-2 year", "in 2-3 year", "in 3-4 year", "in 4-5 year", "in 5-6 year", "in 6-7 year", "after 7 year")  # Custom labels
+  ) 
+```
+
+## add spline term for the last one year
+```{r}
+# set the event date | censored date
+# 1. glp1 users = glp1_initiation_date
+df_bmi_glp1 <- df_bmi %>% filter(glp1 ==1)
+
+df_bmi_glp1 <- df_bmi_glp1 %>%
+  left_join(
+    df %>% dplyr::select(patient_id, glp1_initiation_date), 
+    by ="patient_id"
+  ) %>%
+  rename(date_censored = glp1_initiation_date)
+
+# 2. non-users = the last bmi date
+df_bmi_non <- df_bmi %>% filter(glp1 ==0)
+
+df_bmi_non <- df_bmi_non %>%
+  group_by(patient_id) %>%
+  mutate(
+    date_censored = max(bmi_date)
+  ) %>% ungroup()
+
+# 3. merge two files
+df_bmi <- rbind(df_bmi_glp1, df_bmi_non)
+
+# 4. set new time 0
+df_bmi <- df_bmi %>%
+  mutate(new_time0 = date_censored - 365)
+
+# 5. make a indicators from new time 0
+df_bmi <- df_bmi %>%
+  group_by(patient_id) %>% 
+  dplyr::mutate(
+    time_1yr = ifelse(bmi_date >= new_time0, bmi_date - new_time0, 0)
+  )
+head(df_bmi %>% dplyr::filter(glp1==1) %>% dplyr::select(patient_id, bmi_date, date_censored, time_1yr))
+```
+### 1.2. EDA
+
+From the histogram, we chose not to transform the data to opt for better interpretability, considering the data is not highly skewed to the left.
+
+However, we need to drop the BMI value == 0.
+
+```{r}
+# exploring outcome variable (BMI)
+hist(df_bmi$bmi)
+
+# check missingness
+mice::md.pattern(df_bmi, plot=FALSE)
+```
+## Preliminary data display
+
+### Spaghetti plot with random subset
+
+In exploratory analysis, spaghetti plot was utilized to assess the within-subject and between-subject variability in BMI.
+
+We plot a Spaghetti plot to visualize our outcome over time.
+Based on the plot, we see that there are large heterogeneity among patients, which warrants the use of random intercept and random slope in our model.
+
+Using random intercept and random slope can account for the non-constant variance and correlation between subjects.
+ 
+```{r}
+# Spaghetti plot to show the variance within and between participants
+set.seed(123)
+id_sel = sample(df_bmi$patient_id, 50)
+id_sel_glp1 = sample(df_bmi$patient_id[df_bmi$glp1 ==1], 50)
+id_sel_non = sample(df_bmi$patient_id[df_bmi$glp1 ==0], 50)
+
+df_bmi$time_jitter=df_bmi$time + 0.5*(runif(length(df_bmi$time)) - 0.5) + 0.2*ifelse(df_bmi$glp1==0,0,1)
+
+spagh_plot1=ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel, ],aes(x=time, y=bmi, group=glp1, color=glp1),alpha=0.5) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel, ],aes(x=time, y=bmi, group=patient_id,color=glp1),alpha=0.4) +
+  ggtitle("Spaghetti plot for BMI")  + 
+  xlab("Time") +
+  ylab("BMI") + 
+  scale_color_manual(
+  values = c("0" = "black", "1" = "blue"),
+  labels = c("Not on GLP-1", "On GLP-1"),
+  name = "GLP-1 Status"
+)
+
+spagh_plot1
+
+# for glp1 users
+spagh_plot_glp1=ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel_glp1, ],aes(x=time, y=bmi, group=glp1), color="blue",alpha=0.5) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel_glp1, ],aes(x=time, y=bmi, group=patient_id,color=glp1), color="blue",alpha=0.4) +
+  ggtitle("Spaghetti plot for BMI in GLP-1 users")  + 
+  xlab("Time [days]") +
+  ylab("BMI") +
+  theme_classic()
+
+spagh_plot_glp1
+
+# for non-users
+spagh_plot_non=ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel_non, ],aes(x=time, y=bmi, group=glp1), color="black",alpha=0.5) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel_non, ],aes(x=time, y=bmi, group=patient_id,color=glp1), color="black", alpha=0.4) +
+  ggtitle("Spaghetti plot for BMI in non-users")  + 
+  xlab("Time [days]") +
+  ylab("BMI") + 
+  theme_classic()
+
+spagh_plot_non
+```
+### visit plot with random subset
+```{r}
+# quantify the number of visit
+n_visit_glp1 <- df_bmi_glp1 %>%
+  group_by(patient_id) %>%
+  summarise(
+    number_visits = n()
+  )
+summary(n_visit_glp1$number_visits)
+
+n_visit_non <- df_bmi_non %>%
+  group_by(patient_id) %>%
+  summarise(
+    number_visits = n()
+  )
+summary(n_visit_non$number_visits)
+
+boxplot(n_visit_glp1$number_visits, n_visit_non$number_visits)
+
+n_visit_glp1_clean <- n_visit_glp1 %>%
+  filter(number_visits < 40)
+n_visit_non_clean <- n_visit_non %>%
+  filter(number_visits < 40)
+
+boxplot(n_visit_glp1_clean$number_visits, n_visit_non_clean$number_visits)
+
+# plot with random subset
+set.seed(123)
+id_sel = sample(df_bmi$patient_id, 50)
+id_sel_glp1 = sample(df_bmi$patient_id[df_bmi$glp1 ==1], 50)
+id_sel_non = sample(df_bmi$patient_id[df_bmi$glp1 ==0], 50)
+
+# total
+p_all <- ggplot(df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=factor(patient_id), color = glp1)) +
+    geom_line(aes(group=factor(patient_id)), color="grey") +
+    geom_point(aes(shape=factor(glp1), fill=factor(glp1), group=factor(patient_id)), color="gray30", size=1.1, alpha=0.8) +
+    labs(title = "BMI measured date by Individual",
+         x = "BMI measured date [days]",
+         y = "Individual ID",
+         shape = "glp1",
+         fill = "glp1") +
+    theme_bw() +
+    theme(axis.text.y = element_blank())
+p_all
+
+# GLP-1 users
+p_glp1 <- ggplot(df_bmi[df_bmi$patient_id %in% id_sel_glp1, ], aes(x=time, y=factor(patient_id), color = glp1)) +
+    geom_line(aes(group=factor(patient_id)), color="grey") +
+    geom_point(aes(shape=factor(glp1), fill=factor(glp1), group=factor(patient_id)), color="blue", size=1.1, alpha=0.8) +
+    labs(title = "The date of BMI measurement for each individual among GLP-1 users",
+         x = "BMI measured date [days]",
+         y = "Individual ID",
+         shape = "glp1",
+         fill = "glp1") +
+    theme_bw() +
+    theme(axis.text.y = element_blank())
+p_glp1
+
+# non-users
+p_non <- ggplot(df_bmi[df_bmi$patient_id %in% id_sel_non, ], aes(x=time, y=factor(patient_id), color = glp1)) +
+    geom_line(aes(group=factor(patient_id)), color="grey") +
+    geom_point(aes(shape=factor(glp1), fill=factor(glp1), group=factor(patient_id)), color="black", size=1.1, alpha=0.8) +
+    labs(title = "The date of BMI measurement for each individual among non-users",
+         x = "BMI measured date [days]",
+         y = "Individual ID",
+         shape = "glp1",
+         fill = "glp1") +
+    theme_bw() +
+    theme(axis.text.y = element_blank())
+p_non
+```
+### fit the model
+
+To account for the autocorrelation and heterogeneity between individuals, we fitted a linear mixed effect model (LMM) allowing negative symptom scores to change as a function of time (natural spline, df=3) and the interaction between time (ns, df=3) and treatment, with additional random intercept and random slope for linear time.  
+
+Among linear mixed models and linear and spline models using OLS, we chose linear mixed models with random intercept and random slope based on the AIC value. 
+
+After selecting final logitudinal model, I added baseline covariates. 
+(The same set of covariates will be included in the cox model).
+
+We can also do likelihood ratio test to check if addition of ns(time, df=3) and treatment terms significantly improves fit.
+
+## modeling 2 "linear mixed effect model with random intercept and slope" for each group
+```{r}
+# Standardize continuous variables
+df_bmi$time_scaled <- scale(df_bmi$time)
+names(df_bmi)
+
+# model 0 - wrong model
+model.lmer0 <- lmer(data=df_bmi, bmi ~ glp1 + ns(time_scaled,3):glp1 + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer0)
+
+# model 1
+model.lmer1 <- lmer(data=df_bmi, bmi ~ ns(time_scaled,3) + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer1)
+
+# model 2
+model.lmer2 <- lmer(data=df_bmi, bmi ~ ns(time_scaled,3) + bs_type + sex + race + ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer2)
+
+# model 3
+model.lmer3 <- lmer(data=df_bmi, bmi ~ ns(time_scaled,3):bs_type + ns(time_scaled,3):cc_t2db + ns(time_scaled,3):race + bs_type + sex + race + ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer3)
+
+# lmer for plot
+model.lmer.plot <- lmer(data=df_bmi, bmi ~ glp1 + ns(time_scaled,3) + ns(time_scaled,3):glp1 + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer.plot) # aic = 1403825.7 with at least 3
+
+# lmer with time_1yr indicator (failed to converge)
+model_lmer1.plot <- lmer(data=df_bmi, bmi ~ glp1 + ns(time_scaled, 3) + ns(time_scaled, 3):glp1 + (time_scaled + time_1yr |patient_id), REML=FALSE)
+summary(model.lmer.plot) # aic =
+
+# without glp1 indicator
+model_lmer1_c <- lmer(data=df_bmi, bmi ~ glp1 + ns(time_scaled, 3) + ns(time_scaled, 3):glp1 + (time_scaled + time_1yr |patient_id) + bs_type + sex + race + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, REML=FALSE)
+
+model_lmer1_c <- lmer(data=df_bmi, bmi ~ glp1 + ns(time_scaled, 3) + ns(time_scaled, 3):glp1 + (time_scaled + time_1yr |patient_id) + bs_type + sex + race + ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, REML=FALSE)
+
+# without glp1
+model_lmer1_c <- lmer(data=df_bmi, bmi ~ns(time_scaled, 3) + (time_scaled + time_1yr |patient_id) + bs_type + sex + race + ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, REML=FALSE)
+summary(model_lmer1_c)
+
+# stratified by the time-to-initation
+table(df_bmi$time_to_glp1_cat2)
+
+# stratifies by time_to_glp1_cat
+model_lmer1_stratified <- lmer(data=df_bmi, bmi ~ time_to_glp1_cat + ns(time_scaled, 3) + ns(time_scaled, 3):time_to_glp1_cat + (time_scaled + time_1yr |patient_id), REML=FALSE)
+
+# stratifies by covariates
+model_lmer1_bs <- lmer(data=df_bmi, bmi ~ bs_type + ns(time_scaled, 3) + ns(time_scaled, 3):bs_type + (time_scaled|patient_id), REML=FALSE)
+
+summary(model_lmer1_bs)
+
+# for GLP-1 users
+model_lmer1_glp1 <- lmer(data=df_bmi %>% filter(glp1 ==1), bmi ~ ns(time_scaled, 3) + (time_scaled |patient_id), REML=FALSE)
+summary(model_lmer1_glp1)
+
+# for non-users (model fail to converge)
+model_lmer1_non <- lmer(data=df_bmi %>% filter(glp1 ==0), bmi ~ ns(time_scaled, 3) + (time_scaled |patient_id), REML=FALSE)
+summary(model_lmer1_non)
+```
+
+According to the AIC value, I will go for linear mixed effect model with random intercept and slope, which has the smallest AIC values among several modeling options. (model_lmer1).
+```{r}
+## for total population 
+# save predicted outcome (this prediction is without random effect)
+df_bmi$pred1_fixed = predict(model.lmer.plot, re.form=NA)
+# prediction with random effect
+df_bmi$pred1_re = predict(model.lmer.plot, re.form=NULL)
+
+# for stratified by the time-to-initation
+#df_bmi$pred1_fixed2 = predict(model_lmer1_stratified, re.form=NA)
+#df_bmi$pred1_re2 = predict(model_lmer1_stratified, re.form=NULL)
+
+## for GLP-1 users
+df_bmi_glp1$pred1_fixed = predict(model_lmer1_glp1, re.form=NA)
+df_bmi_glp1$pred1_re = predict(model_lmer1_glp1, re.form=NULL)
+
+## for non-users
+df_bmi_non$pred1_fixed = predict(model_lmer1_non, re.form=NA)
+df_bmi_non$pred1_re = predict(model_lmer1_non, re.form=NULL)
+```
+## point out the bottom value of the fixed line
+```{r}
+# for glp1 users
+df_bmi_glp1 <- df_bmi %>% filter(glp1==1)
+min_value <- min(df_bmi_glp1$pred1_fixed, na.rm = TRUE) # 21.15038
+nadir_glp1 <- df_bmi_glp1 %>% filter(pred1_fixed < 35) %>% print()
+
+#min_value <- min(df_bmi_glp1$pred1_fixed, na.rm = TRUE)
+# <- df_bmi_glp1 %>% summarise(min_value = min(pred1_fixed, na.rm = Tmin_valueRUE))
+
+df_bmi_non <- df_bmi %>% filter(glp1==0)
+```
+
+### Spaghetti Plots with linear model
+```{r}
+# random sampled 50 individuals
+set.seed(123)
+id_sel = sample(df_bmi$patient_id, 50)
+id_sel_glp1 = sample(df_bmi$patient_id[df_bmi$glp1 ==1], 50)
+id_sel_non = sample(df_bmi$patient_id[df_bmi$glp1 ==0], 50)
+
+## total population
+# make time_shift variable
+df_bmi$time_shift = df_bmi$time + ifelse(df_bmi$glp1==0, -0.1, 0.1)
+
+spagh_plot2 <- ggplot() +
+  #geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=glp1, color=glp1), alpha=0.2) +
+  #geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=patient_id, color=glp1), alpha=0.1) +
+  geom_line(data=df_bmi, aes(x=time, y=pred1_fixed, group=glp1, color=glp1), linewidth=1, linetype = "solid") +
+  theme_classic() +
+  ggtitle("A. Post-surgical BMI with Linear Mixed Model Fit, GLP-1 users vs. non-users")  + 
+  xlab("Time since Bariatric surgery (in year)") +
+  ylab("BMI") + 
+  scale_x_continuous(
+    breaks = seq(0, max(df_bmi$time, na.rm = TRUE), by = 365), 
+    labels = seq(0, max(df_bmi$time, na.rm = TRUE) / 365, by = 1)
+    ) +
+  ylim(10, 50) + 
+  scale_color_manual(
+  values = c("0" = "black", "1" = "blue"),
+  labels = c("Non-uesrs", "GLP-1 users"),
+  name = "GLP-1 initiation"
+)
+  
+spagh_plot2
+ggsave("trajectory_comparison_glp1_vs_non_spline.png", plot = spagh_plot2, width = 8, height = 5, dpi = 300, bg = "white")
+
+## total population with stratification across the time-to-events
+df_bmi$time_shift = df_bmi$time + ifelse(df_bmi$glp1==0, -0.1, 0.1)
+# time_to_glp1_cat
+spagh_plot2_stratified <- ggplot() +
+  #geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=glp1, color=glp1), alpha=0.2) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=patient_id, color=glp1), alpha=0.1) +
+  geom_line(data=df_bmi, aes(x=time, y=pred1_fixed2, group=time_to_glp1_cat, color=time_to_glp1_cat), linewidth=1, linetype = "solid") +
+  theme_classic() +
+  labs(x= "Time (in year)",
+       y ="BMI",
+       title = "B. Post-surgical BMI with Linear Mixed Model Fit, \nstratified by the timing of GLP-1 initiation") +
+  scale_x_continuous(
+    breaks = seq(0, max(df_bmi$time_n, na.rm = TRUE), by = 365), 
+    labels = seq(0, max(df_bmi$time_n, na.rm = TRUE) / 365, by = 1)
+    ) +
+  scale_color_discrete(labels = c("Never used", "within 1 year", "in 1-2 year", "in 2-3 year", "in 3-4 year", "in 4-5 year", "in 5-6 year", "in 6-7 year", "after 7 year")) +
+  guides(color = guide_legend(title="Timing of GLP-1 initiation"))
+
+spagh_plot2_stratified
+
+ggsave("trajectory_comparison_stratified.png", plot = spagh_plot2_stratified, width = 8, height = 5, dpi = 300, bg = "white")
+```
+## stratified by 3 categories, glp1 users vs. non-users
+```{r}
+# time_to_glp1_cat2
+spagh_plot2_stratified <- ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=glp1, color=glp1), alpha=0.2) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel, ], aes(x=time, y=bmi, group=patient_id, color=glp1), alpha=0.1) +
+  geom_line(data=df_bmi, aes(x=time, y=pred1_fixed2, group=time_to_glp1_cat2, color=time_to_glp1_cat2), linewidth=1, linetype=2) +
+  theme_bw() +
+  labs(x= "Time (in days)",
+       y ="BMI",
+       title = "Spaghetti plot for BMI with linear mixed model fit \nstratified by GLP-1's initiation timing") +
+  scale_color_discrete(labels = c("Never used", "Early used (within 2y)", "Middle used (between 2-5y)", "Late used (after 5y)")) +
+  guides(color = guide_legend(title="Time to GLP-1 initiation")) + 
+  scale_color_manual(
+  values = c("0" = "black", "1" = "blue"),
+  labels = c("Not on GLP-1", "On GLP-1"),
+  name = "GLP-1 Status"
+)
+
+spagh_plot2_stratified
+
+## for GLP-1 users
+spagh_plot2_glp1 <- ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel_glp1, ], aes(x=time, y=bmi, group=glp1), color="blue", alpha=0.2) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel_glp1, ], aes(x=time, y=bmi, group=patient_id, color=glp1), color ="blue", alpha=0.1) +
+  geom_line(data=df_bmi_glp1, aes(x=time, y=pred1_fixed, group=glp1), color="blue", linewidth=1, linetype=2) +
+  theme_bw() +
+  ggtitle("Spaghetti plot for BMI with LMM Fit among GLP-1 users")  + 
+  xlab("Time since surgery (in days)") +
+  ylab("BMI")
+
+spagh_plot2_glp1 
+
+## for non-users
+spagh_plot2_non <- ggplot() +
+  geom_point(data=df_bmi[df_bmi$patient_id %in% id_sel_non, ], aes(x=time, y=bmi, group=glp1), color="black", alpha=0.2) +
+  geom_line(data=df_bmi[df_bmi$patient_id %in% id_sel_non, ], aes(x=time, y=bmi, group=patient_id, color=glp1), color = "black",alpha=0.1) +
+  geom_line(data=df_bmi_non, aes(x=time, y=pred1_fixed, group=glp1), color="black", linewidth=1, linetype=2) +
+  theme_bw() +
+  ggtitle("Spaghetti plot for BMI with LMM Fit among non-users")  + 
+  xlab("Time (in days)") +
+  ylab("BMI")
+
+spagh_plot2_non
+```
+
+## incidence rate
+```{r}
+new_data <- data.frame(
+  time_to_glp1_cat = as.factor(c(1,1,2,3,4,5,6,7,8)),
+  time = c(0,365*1,365*2,365*3,365*4,365*5,365*6,365*7,365*8),
+  glp1 = c(1,1,1,1,1,1,1,1,1),
+  patient_id = NA  
+)
+# time = c(0,365*1,365*2,365*3,365*4,365*5,365*6,365*7,365*8), 
+predicted_values <- predict(model_lmer1_stratified, newdata = new_data, re.form = NA)
+result <- cbind(new_data, predicted_bmi = round(predicted_values, 5))
+result 
+
+result_table <- result %>%
+  mutate(
+    year = c(0, 1, 2, 3, 4, 5, 6, 7, 8),
+    predicted_bmi = sprintf("%.2f", predicted_bmi)) %>%
+  ggplot(aes(x = factor(year), y = 1, label = predicted_bmi)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Predicted BMI at the time of GLP-1 initiation for each year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+print(result_table)
+```
+## pooling the plot
+```{r}
+### combine
+library(patchwork)
+combined_plot <- (spagh_plot2_stratified/ result_table) + plot_layout(heights = c(3, 0.5, 0.1, 0.1))
+print(combined_plot)
+
+ggsave("trajectory_comparison_stratified_ir.png", plot = combined_plot, width = 7, height = 5, dpi = 300, bg = "white")
+```
+
+### Quantifying the difference
+
+We want to quantify and make inference about the difference in population means of the two groups by plotting the difference of predicted negpan scores between the two groups as function of time, with corresponding 95% CI. 
+```{r}
+summary(model_lmer1_c)
+summary(model_lmer1_c)$coefficients
+summary(model_lmer1_c)$coefficients[6:8,1]
+
+A=matrix(ns(c(1,365*1,365*2,365*3,365*4,365*5,365*6,365*7,365*8, 365*9),Boundary.knots=c(1,365*9),knots=c(365*1.5,365*4.5)),ncol=3)
+
+#A=matrix(ns(c(1,365*1,365*2,365*3,365*4,365*5,365*6,365*7,365*8, 365*9),Boundary.knots=c(1,365*9),knots=c(365*1.5,365*4.5)),ncol=4)
+
+b=matrix(summary(model_lmer1_c)$coefficients[6:8,1],ncol=1)
+var_b=summary(model_lmer1_c)$vcov[6:8,6:8]
+
+fit=A %*% b
+var_fit = A %*% var_b %*% t(A)
+se_fit = sqrt(diag(var_fit))
+
+result=data.frame(time=c(1,365*1,365*2,365*3,365*4,365*5,365*6,365*7,365*8,365*9),fit=fit,se_fit=se_fit,ci_l=fit-2*se_fit,ci_u=fit+2*se_fit)
+
+# plot results
+ggplot(data=result,aes(x=time, y=fit)) + geom_point() + geom_line() +
+  geom_abline(intercept=0,slope=0,col="red") + 
+  geom_line(aes(x=time,y=ci_l),col="navyblue") +
+  geom_line(aes(x=time,y=ci_u),col="navyblue") + 
+  ylim(-3,5) + ylab("Estimated Mean Difference in Negative Symptom Score") + 
+  xlab("Time (in weeks)") +
+  ggtitle("Mean Negative Symptom Score Difference between Groups") +
+  theme_bw()
+```
+##
+```{r}
+library(gtsummary)
+library(dplyr)
+head(df)
+df %>% dplyr::select(age_at_bs, race, bs_type) %>% tbl_summary()
+
+tbl_regression(model_lmer1)
+```
+
+# 2, Time_to_event analysis component
+### preprocessing for time-to-event dataset
+Model: Cox proportional hazard model
+Data frame: one row per individual
+```{r}
+# generate 'study end date' 
+df <- df %>%
+  mutate(study_end_date = ymd("2023-12-31"))
+# define exit_date
+df <- df %>%
+  mutate(
+    glp1_initiation_date = as.Date(glp1_initiation_date),
+    death_date = as.Date(death_date),
+    study_end_date = as.Date(study_end_date), 
+    glp1 = case_when(
+      temporality == 0 ~ 0, 
+      temporality == 2 ~ 1
+    )
+  )
+df <- df %>%
+  mutate(exit_date = pmin(glp1_initiation_date, death_date, study_end_date, na.rm = TRUE))
+print(df$exit_date, 10)
+
+# calculate time-to-exit [person-day]
+df <- df %>%
+  mutate(entry = 0, 
+         time_to_exit = exit_date - bs_date)   # unit of time_to_exit = difftime [days]
+
+# convert time_to_exit to numeric
+df <- df %>%
+  mutate(entry = 0, 
+         time_to_exit = as.numeric(exit_date - bs_date), units = "days")
+
+# any 0 or negative value of time-to-exit? yes, 35 
+df_check <- df %>%
+  filter(time_to_exit <=0) %>%
+  summarise(negative_time = n()) %>%
+  print() 
+
+# find the problematic_rows
+# 15 individuals have (death_date = bs_date) + 20 individuals have (glp1_initiation_date = bs_date)
+problematic_rows <- df %>%
+  filter(time_to_exit <= entry | is.na(time_to_exit) | is.na(entry)) %>%
+  dplyr::select(patient_id, bs_date, glp1_initiation_date, death_date, study_end_date, time_to_exit, entry) %>%
+  print()
+
+# delete the 35 problematic_rows by using anti_join
+df_clean <- df %>%
+  anti_join(problematic_rows, by = "patient_id")
+
+nrow(df_clean) # 37608
+
+# number of study population # 17010 <- glp1 users = 6315 | non-users = 31293
+unique_patients <- length(unique(df_clean$patient_id[df_clean$glp1 ==0]))
+print(unique_patients)
+```
+### fit the COX model
+```{r}
+surv_obj <- Surv(time= df_clean$entry, time2= df_clean$time_to_exit, event= df_clean$glp1)
+```
+
+## Joint model
+1. Clean the dataset for each model
+2. Use a common subset of patients present in both datasets
+```{r}
+## 1. clean the dataset for each model
+## 1-1. clean the data for 'df_cox' dataset
+# can I just drop the col with missing - b/c I don't use them 
+df_clean <- df_clean %>%
+  dplyr::select(-bmi_index, -glp1_date, -glp1_initiation_date, -glp1_gap, -gap_glp1_bs, -death_year, -death_month, -death_date,-reason_yob_missing, -month_year_death, -death_date_source_id, -source_id, -year_of_birth, -encounter_id, -unique_id, -code_system, -code, -route, -brand, -strength, -derived_by_TriNetX, -Indication, -age_cat, -glp1_user, -temporality)
+# check missingness
+mice::md.pattern(df_clean, plot=FALSE)
+
+#  Stop time must be > start time
+names(df_clean)
+check <- df_clean %>% filter(exit_date <= bs_date) %>% print()
+nrow(is.na(check)) # 0
+
+## 1-2. clean the data for 'df_lme' dataset
+# change the format of time : timediff -> numeric
+df_bmi$time <- as.numeric(df_bmi$time)
+# to compare the time vs. time_to_exit, add time_to_exit to the df_lme
+df_bmi_clean <- df_bmi %>%
+  left_join(df_clean %>% dplyr::select(patient_id, time_to_exit), by = "patient_id")
+nrow(df_bmi_clean) # 287164
+df_bmi_clean <- df_bmi_clean  %>%
+  filter(time < time_to_exit)
+nrow(df_bmi_clean) # 283986
+
+# 2, Use a common subset of patients present in both datasets:
+common_ids <- intersect(unique(df_bmi_clean$patient_id), unique(df_clean$patient_id))
+df_lme <- df_bmi_clean[df_bmi_clean$patient_id %in% common_ids, ] # long dataset 
+df_cox <- df_clean[df_clean$patient_id %in% common_ids, ] # 1 row per 1 person
+
+n <- length(unique(df_lme$patient_id)) # n = 15606
+m <- length(unique(df_cox$patient_id)) # m = 15606
+nrow(df_cox) # m = 15606
+
+# Check for missing or infinite values
+mice::md.pattern(df_cox, plot=FALSE) # 0
+mice::md.pattern(df_lme, plot=FALSE) # 0
+
+# the ordering of the subjects needs to be the same
+head(df_cox)
+
+exp(0.0071) #1.007125
+exp(0.1*1.3944)
+
+check <- df_lme %>%
+  filter(patient_id == "6A_lD") %>% dplyr::select(patient_id, time_to_exit, time) %>% print()
+```
+#### Method 1 : "jointModel" function
+solution : 
+1. increase iteration
+2. Adjust Convergence Criteria
+```{r}
+### LMM + COX model 
+df_cox <- as.data.frame(df_cox)
+df_lme <- as.data.frame(df_lme)
+
+head(df_lme)
+# longitudinal analysis (Increase Iteration Limits)
+lmeFit0 <- lme(bmi ~ glp1 + ns(time, 3):glp1, random = ~ time | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+lmeFit1 <- lme(bmi ~ ns(time, 3), random = ~ time | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+lmeFit2 <- lme(bmi ~ ns(time, 3) + bs_type + sex + race +  ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, random = ~ time | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+lmeFit3 <- lme(bmi ~ ns(time, 3):bs_type + ns(time, 3):cc_t2db + ns(time, 3):race + bs_type + sex + race +  ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, random = ~ time | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+
+# time-to-event analysis
+coxFit <- coxph(Surv(df_cox$time_to_exit, df_cox$glp1) ~ bs_type + sex + race +  ethnicity + marital_status + patient_regional_location + age_at_bs + cc_t2db + cc_htn + cc_dyslip + cc_hf + cc_liver, data=df_cox, x=TRUE, model=TRUE) 
+summary(coxFit)
+
+# joint model
+## 1.under 
+jointFit <- jointModel(lmeFit0, coxFit, timeVar = "time", method = "weibull-PH-aGH", control = list(niter = 200, eps = 1e-6)) # run
+summary(jointFit)
+jointFit1 <- jointModel(lmeFit1, coxFit, timeVar = "time") # run
+summary(jointFit1)
+```
+
+```{r}
+# with model 0
+exp(0.0484) # 1.04959
+0.0484 + 1.96*0.0021 # 0.052516
+0.0484 - 1.96*0.0021 # 0.044284
+exp(0.052516) # 1.053919
+exp(0.044284) # 1.045279
+
+# with model 1
+exp(0.0018) # 1.001802 -> 0.2%
+0.0018 + 1.96*0.0027 # 0.007092
+0.0018 - 1.96*0.0027 # -0.003492
+exp(0.007092) # 1.007117
+exp(-0.003492) # 0.9965141
+
+exp(0.0071) # aHR = 1.007125 (p<0.001)
+exp(0.0027) # SE = 1
+0.0071 + 1.96*0.0027 # 0.012
+0.0071 - 1.96*0.0027 # 0.0018
+
+exp(0.012) # 1.012
+exp(0.0018) # 1.0018
+
+exp(0.0029) # 1.002904
+0.0029 + 1.96 * 0.0029 # 0.008584
+0.0029 - 1.96 * 0.0029 # -0.002784
+
+exp(0.008584) # 1.008621
+exp(-0.002784) # 0.997219
+
+  
+  
+exp(0.0748) # 1.077669
+exp(0.0024) # 1.002403
+
+0.0748 + 1.96 * 0.0024	# 0.079504
+0.0748 - 1.96 * 0.0024	# 0.070096
+exp(0.079504) # 1.08275
+exp(0.070096) # 1.072611
+
+
+
+## 2~3. under 'Cox-PH-GH' assumption
+jointFit2 <- jointModel(lmeFit, coxFit, timeVar = "time")
+# error: Error in model.frame.default(data = FALSE, formula = ~long + W1 + W2,  : 'data' must be a data.frame, environment, or list
+summary(jointFit2)
+exp(0.0011) # aHR = 1.001101 
+
+jointFit3 <- jointModel(lmeFit, coxFit, timeVar = "time", method = "Cox-PH-GH", control = list(iter.EM = 500, iter.qN = 500, tol1 = 1e-6, tol2 = 1e-6, verbose = FALSE))
+
+# 4. use another package (more recent one)
+if (!require("JMbayes2")) install.packages("JMbayes2")
+library(JMbayes2)
+jointFit4 <- jm(coxFit, lmeFit, time_var = "time") # error with long statement
+
+### 5~6. survival analysis with Weibull 
+install.packages("flexsurv")
+library(flexsurv)
+weibullFit <- survreg(Surv(df_cox$time_to_exit, glp1) ~ sex + cc_obs, data=df_cox, x=TRUE)
+summary(weibullFit)
+
+jointFit5 <- jointModel(lmeFit, weibullFit, timeVar = "time")
+jointFit6 <- jointModel(lmeFit, weibullFit, timeVar = "time", method = "weibull-PH-aGH", control = list(niter = 200, eps = 1e-6))
+
+mice::md.pattern(weibullFit, plot=FALSE)
+```
+
+### plot JointModel with Conditional survival predictions
+```{r}
+# plot the conditional survival plot
+?survfitJM
+
+df_lme_0gHN <- df_lme[df_lme$patient_id == "0gHN", ]
+lapply(df_lme_0gHN, function(x) if (is.factor(x)) levels(x))
+
+# 1
+sfit <- survfitJM(jointFit, newdata = df_lme_0gHN[1:5, ], idVar = "patient_id")
+
+# 2
+sfit <- survfitJM(jointFit, newdata = df_lme_0gHN, idVar = "patient_id",  Thoriz = NULL, Dt = NULL, simulate = FALSE)
+
+# 3
+sfit <- survfitJM(jointFit, newdata = df_lme_0gHN, idVar = "patient_id", survTimes = 365*2, last.time = 365*5, simulate = FALSE)
+
+sfit
+plot(sfit, include.y = TRUE)
+
+## Time-Dependent AUCs for Joint Models
+#aucJM(jointFit, newdata = df_lme, idVar = "patient_id", Tstart = 365, Thoriz = 365*7)
+```
+### plot JointModel with KM curve
+```{r}
+# plot 
+plot(jointFit, 3, add.KM = TRUE, col = "red", lwd = 2)
+
+par(mfrow = c(2, 2))
+plot(jointFit)
+```
+#### Method 3 : Adding time-dependent slopes
+```{r}
+# longitudinal analysis (Increase Iteration Limits)
+lmeFit <- lme(bmi ~ ns(time, 3), random = ~ time | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+# time-to-event analysis
+coxFit <- coxph(Surv(df_cox$time_to_exit, df_cox$glp1) ~ sex + cc_obs, data=df_cox, x=TRUE, model=TRUE) 
+
+#joint model with slope
+jointFit_slope <- jm(coxFit, lmeFit, time_var = "time",
+                    functional_forms = ~ slope(bmi, eps =1, direction = "back"))
+?jm
+
+summary(jointFit_slope)
+```
+### 2 stage model
+```{r}
+# Stage 1: Fit the Longitudinal Submodel
+### longitudinal analysis (Increase Iteration Limits)
+lmeFit <- lme(bmi ~ ns(time_n, 3), random = ~ time_n | patient_id, data=df_lme, control = lmeControl(opt = "optim", msMaxIter = 100, niterEM = 50))
+
+# extract subject-specific predicted value from the longitudinal model
+df_lme_2stage <- df_lme
+df_lme_2stage$pred1_fixed = predict(lmeFit, re.form=NA)
+
+# method 1 : mean value
+aggregated_data_1 <- df_lme_2stage %>%
+  group_by(patient_id) %>%
+  summarize(predicted_bmi = mean(pred1_fixed))
+
+df_cox_1 <- df_cox %>%
+  left_join(aggregated_data_1, by = "patient_id")
+
+# Stage 2: Fit the survival model using predicted values from the longitudinal model
+cox_2stage_1 <- coxph(Surv(time_to_exit, glp1) ~ predicted_bmi + sex + cc_obs, data = df_cox_1) 
+summary(cox_2stage_1) # aHR = 1.07448, (1.067, 1.082)
+
+
+## method 2: Last Observed Value
+aggregated_data_2 <- df_lme_2stage %>%
+  group_by(patient_id) %>%
+  summarize(predicted_bmi = pred1_fixed[which.max(time_n <= time_to_exit)])
+
+df_cox_2 <- df_cox %>%
+  left_join(aggregated_data_2, by = "patient_id")
+
+# Stage 2: Fit the survival model using predicted values from the longitudinal model
+cox_2stage_2 <- coxph(Surv(time_to_exit, glp1) ~ predicted_bmi + sex + cc_obs, data = df_cox_2) 
+summary(cox_2stage_2) # aHR = 1.0632, (1.056, 1.07)
+
+```
+
+```{r}
+### Extract subject-specific random effects
+random_effects <- ranef(lmeFit)
+
+random_effects <- as.data.frame(random_effects)
+random_effects$patient_id <- rownames(random_effects)
+random_effects
+nrow(random_effects) # 15606
+nrow(df_cox) # 15606
+
+random_effects <- random_effects %>%
+  dplyr::select(-group, -term, -patient_id)
+
+random_effects <- random_effects %>%
+  rename(patient_id = level)
+
+df_cox_2 <- df_cox %>%
+  left_join(random_effects, by = "patient_id")
+```
+
+
+
+
+

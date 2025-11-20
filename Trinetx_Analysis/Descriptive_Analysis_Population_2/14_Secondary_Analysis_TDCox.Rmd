@@ -1,0 +1,90 @@
+---
+title: "14_Secondary_Analysis_TDCox"
+output: html_document
+date: "2025-02-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+
+df <- readRDS("studypopulation.rds")
+df_bmi <- read_sas("bmi_studypopulation_v01.sas7bdat")  
+```
+### 1 preprocessing the dataset
+```{r}
+df_bmi$time <- as.numeric(df_bmi$bmi_date - df_bmi$bs_date)  
+df_bmi <- df_bmi %>% select(-temporality, -time_to_glp1_cat, -glp1_initiation_date)
+
+# join the population information
+df_bmi <- df_bmi %>% left_join(df, by = c('patient_id', 'bs_date'))
+
+# remain only post surgery -BMI
+df_bmi <- df_bmi %>% filter(bmi_date >= bs_date)
+
+# remain individuals only with sg & rygb
+df_bmi <- df_bmi %>% filter(bs_type %in% c('sg', 'rygb')) # the # = 15840	
+35286-15840 # = 19446
+
+# remove unappropriate data - BMI < 10
+df_bmi <- df_bmi %>% filter(bmi >= 10) # the # = 15821	
+15840 - 15821	# 19
+
+### remove individuals have at least two BMI mesurements after index
+df_bmi <- df_bmi %>%
+  group_by(patient_id) %>%
+  filter(n() > 1) %>%  # Keep only individuals with more than one row
+  ungroup()            # Remove grouping for further operations
+
+# number of eligible population
+df_bmi %>% distinct(patient_id) %>% count() %>% print() # 14549
+15821 - 14549 # 1272
+
+saveRDS(df_bmi, "post_bmi_studypopulation_2ndanalysis.rds")
+```
+### Time-varying Cox
+1. Make dataset for time-varying Cox model  long forma
+```{r}
+names(df_bmi)
+df_tvc  <- df_bmi %>%
+  group_by(patient_id) %>%
+  dplyr::mutate(
+    tstart = lag(time, default = 0),  # Start time is the previous end time
+    event = if_else(glp1_user ==1 & row_number() == n(), 1, 0)  # Event occurs in the last interval
+  ) %>% ungroup()
+
+head(df_tvc %>% select(patient_id, tstart, time, event))
+
+# remove the row with (time == 0)
+df_tvc <- df_tvc %>% filter(time != 0)
+```
+2. cox model with time-varing covariate
+```{r}
+cox_tvc <- coxph(Surv(tstart, time, event) ~ age_at_bs + sex + race + ethnicity + marital_status + patient_regional_location +  bs_type + bmi_index_cat + bmi + cc_diabetes + cc_htn + cc_dyslip + cc_osa + cc_hf + cc_liver + cc_ckd + cc_pos + cc_gerd  + cm_dm + cm_ob + cm_depres + cm_psycho + cm_convul, data=df_tvc)
+summary(cox_tvc)
+
+summary_tvc <- summary(cox_tvc) 
+
+# table
+table3.1 <- cbind(exp(summary_tvc$coefficients[, "coef"]), summary_tvc$conf.int[, "lower .95"], summary_tvc$conf.int[, "upper .95"])
+table3.1 
+
+table3.2 <- cbind(paste0(format(exp(summary_tvc$coefficients[, "coef"]), digits=2, nsmall=2), " (", format(summary_tvc$conf.int[, "lower .95"], digits=2, nsamll=2), "-", format(summary_tvc$conf.int[, "upper .95"], digits=2, nsmall=2), ")"))
+table3.2 
+```
+
+
+
+

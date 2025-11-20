@@ -1,0 +1,335 @@
+---
+title: "16_Timevarying_medication"
+output: html_document
+date: "2025-02-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## setting
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+library(stringr)
+library(lubridate)
+
+pop <- readRDS("studypopulation.rds")
+
+df.metformin <- read_sas("metformin_users_v01.sas7bdat")
+df.dpp4 <- read_sas("dpp4_users_v01.sas7bdat")
+df.sglt2 <- read_sas("sglt2_users_v01.sas7bdat")
+df.su <- read_sas("sulfonylureas_users_v01.sas7bdat")
+df.thiaz <- read_sas("thiazo_users_v01.sas7bdat")
+df.insulin <- read_sas("insulin_users_v01.sas7bdat")
+df.depress <- read_sas("antidepressant_users_v01.sas7bdat")
+df.convul <- read_sas("anticonvulsants_users_v01.sas7bdat")
+df.psycho <- read_sas("antipsychotics_users_v01.sas7bdat")
+```
+### metformin
+```{r}
+# setting
+df.metformin <- df.metformin %>% filter(patient_id %in% pop$patient_id)
+
+#pre.metformin
+df.metformin.pre <- df.metformin %>%
+  select(patient_id, bs_date, comedi_date) %>%
+  filter(comedi_date <= bs_date & comedi_date >= (bs_date-365)) %>%
+  mutate(pre.metformin = 1) %>%
+  arrange(patient_id, comedi_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.metformin.pre) #8811
+
+#post.metformin
+df.metformin.post <- df.metformin %>%
+  select(patient_id, bs_date, comedi_date) %>%
+  filter(comedi_date > bs_date & comedi_date <= (bs_date+365)) %>%
+  mutate(post.metformin = 1) %>%
+  arrange(patient_id, comedi_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.metformin.post) #3769
+```
+### dpp4
+```{r}
+# setting
+df.dpp4 <- df.dpp4 %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.dpp4.pre <- df.dpp4 %>%
+  select(patient_id, bs_date, cm_dpp4_date) %>%
+  filter(cm_dpp4_date <= bs_date & cm_dpp4_date >= (bs_date-365)) %>%
+  mutate(pre.dpp4 = 1) %>%
+  arrange(patient_id, cm_dpp4_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.dpp4.pre) # 1122
+
+#post
+df.dpp4.post <- df.dpp4 %>%
+  select(patient_id, bs_date, cm_dpp4_date) %>%
+  filter(cm_dpp4_date > bs_date & cm_dpp4_date <= (bs_date+365)) %>%
+  mutate(post.dpp4 = 1) %>%
+  arrange(patient_id, cm_dpp4_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.dpp4.post) # 488
+```
+### sglt2
+```{r}
+# setting
+df.sglt2 <- df.sglt2 %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.sglt2.pre <- df.sglt2 %>%
+  select(patient_id, bs_date, cm_sglt2_date) %>%
+  filter(cm_sglt2_date <= bs_date & cm_sglt2_date >= (bs_date-365)) %>%
+  mutate(pre.sglt2 = 1) %>%
+  arrange(patient_id, cm_sglt2_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.sglt2.pre) # 680
+
+#post
+df.sglt2.post <- df.sglt2 %>%
+  select(patient_id, bs_date, cm_sglt2_date) %>%
+  filter(cm_sglt2_date > bs_date & cm_sglt2_date <= (bs_date+365)) %>%
+  mutate(post.sglt2 = 1) %>%
+  arrange(patient_id, cm_sglt2_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.sglt2.post) # 306
+```
+### df.su
+```{r}
+# setting
+df.su <- df.su %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.su.pre <- df.su %>%
+  select(patient_id, bs_date, cm_su_date) %>%
+  filter(cm_su_date <= bs_date & cm_su_date >= (bs_date-365)) %>%
+  mutate(pre.su = 1) %>%
+  arrange(patient_id, cm_su_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.su.pre) # 1826
+
+#post
+df.su.post <- df.su %>%
+  select(patient_id, bs_date, cm_su_date) %>%
+  filter(cm_su_date > bs_date & cm_su_date <= (bs_date+365)) %>%
+  mutate(post.su = 1) %>%
+  arrange(patient_id, cm_su_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.su.post) # 697
+```
+### df.thiaz
+```{r}
+# setting
+df.thiaz <- df.thiaz %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.thiaz.pre <- df.thiaz %>%
+  select(patient_id, bs_date, cm_thiaz_date) %>%
+  filter(cm_thiaz_date <= bs_date & cm_thiaz_date >= (bs_date-365)) %>%
+  mutate(pre.thiaz = 1) %>%
+  arrange(patient_id, cm_thiaz_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.thiaz.pre) # 349
+
+#post
+df.thiaz.post <- df.thiaz %>%
+  select(patient_id, bs_date, cm_thiaz_date) %>%
+  filter(cm_thiaz_date > bs_date & cm_thiaz_date <= (bs_date+365)) %>%
+  mutate(post.thiaz = 1) %>%
+  arrange(patient_id, cm_thiaz_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.thiaz.post) # 128
+```
+### df.insulin
+```{r}
+# setting
+df.insulin <- df.insulin %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.insulin.pre <- df.insulin %>%
+  select(patient_id, bs_date, cm_insul_date) %>%
+  filter(cm_insul_date <= bs_date & cm_insul_date >= (bs_date-365)) %>%
+  mutate(pre.insulin = 1) %>%
+  arrange(patient_id, cm_insul_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.insulin.pre) # 7238
+
+#post
+df.insulin.post <- df.insulin %>%
+  select(patient_id, bs_date, cm_insul_date) %>%
+  filter(cm_insul_date > bs_date & cm_insul_date <= (bs_date+365)) %>%
+  mutate(post.insulin = 1) %>%
+  arrange(patient_id, cm_insul_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.insulin.post) # 4892
+```
+### df.depress
+```{r}
+# setting
+df.depress <- df.depress %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.depress.pre <- df.depress %>%
+  select(patient_id, bs_date, cm_depres_date) %>%
+  filter(cm_depres_date <= bs_date & cm_depres_date >= (bs_date-365)) %>%
+  mutate(pre.depress = 1) %>%
+  arrange(patient_id, cm_depres_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.depress.pre) # 9626
+
+#post
+df.depress.post <- df.depress %>%
+  select(patient_id, bs_date, cm_depres_date) %>%
+  filter(cm_depres_date > bs_date & cm_depres_date <= (bs_date+365)) %>%
+  mutate(post.depress = 1) %>%
+  arrange(patient_id, cm_depres_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.depress.post) # 11034
+```
+### df.convul
+```{r}
+# setting
+df.convul <- df.convul %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.convul.pre <- df.convul %>%
+  select(patient_id, bs_date, cm_convul_date) %>%
+  filter(cm_convul_date <= bs_date & cm_convul_date >= (bs_date-365)) %>%
+  mutate(pre.convul = 1) %>%
+  arrange(patient_id, cm_convul_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.convul.pre) # 13276
+
+#post
+df.convul.post <- df.convul %>%
+  select(patient_id, bs_date, cm_convul_date) %>%
+  filter(cm_convul_date > bs_date & cm_convul_date <= (bs_date+365)) %>%
+  mutate(post.convul = 1) %>%
+  arrange(patient_id, cm_convul_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.convul.post) # 9861
+```
+### df.psycho
+```{r}
+# setting
+df.psycho <- df.psycho %>% filter(patient_id %in% pop$patient_id)
+
+#pre
+df.psycho.pre <- df.psycho %>%
+  select(patient_id, bs_date, cm_psycho_date) %>%
+  filter(cm_psycho_date <= bs_date & cm_psycho_date >= (bs_date-365)) %>%
+  mutate(pre.psycho = 1) %>%
+  arrange(patient_id, cm_psycho_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.psycho.pre) # 8265
+
+#post
+df.psycho.post <- df.psycho %>%
+  select(patient_id, bs_date, cm_psycho_date) %>%
+  filter(cm_psycho_date > bs_date & cm_psycho_date <= (bs_date+365)) %>%
+  mutate(post.psycho = 1) %>%
+  arrange(patient_id, cm_psycho_date) %>%
+  group_by(patient_id) %>%
+  slice(1)
+nrow(df.psycho.post) # 3425
+```
+
+## merge with the total study population 
+```{r}
+#merge with the study population
+comedication <- pop %>% 
+  left_join(df.metformin.pre %>% select(patient_id, pre.metformin), by = "patient_id") %>%
+  left_join(df.metformin.post %>% select(patient_id, post.metformin), by = "patient_id") %>%
+  left_join(df.dpp4.pre %>% select(patient_id, pre.dpp4), by = "patient_id") %>%
+  left_join(df.dpp4.post %>% select(patient_id, post.dpp4), by = "patient_id") %>%
+  left_join(df.sglt2.pre %>% select(patient_id, pre.sglt2), by = "patient_id") %>%
+  left_join(df.sglt2.post %>% select(patient_id, post.sglt2), by = "patient_id") %>%
+  left_join(df.su.pre %>% select(patient_id, pre.su), by = "patient_id") %>%
+  left_join(df.su.post %>% select(patient_id, post.su), by = "patient_id") %>%
+  left_join(df.thiaz.pre %>% select(patient_id, pre.thiaz), by = "patient_id") %>%
+  left_join(df.thiaz.post %>% select(patient_id, post.thiaz), by = "patient_id") %>%
+  left_join(df.insulin.pre %>% select(patient_id, pre.insulin), by = "patient_id") %>%
+  left_join(df.insulin.post %>% select(patient_id, post.insulin), by = "patient_id") %>%
+  left_join(df.depress.pre %>% select(patient_id, pre.depress), by = "patient_id") %>%
+  left_join(df.depress.post %>% select(patient_id, post.depress), by = "patient_id") %>%
+  left_join(df.convul.pre %>% select(patient_id, pre.convul), by = "patient_id") %>%
+  left_join(df.convul.post %>% select(patient_id, post.convul), by = "patient_id") %>%
+  left_join(df.psycho.pre %>% select(patient_id, pre.psycho), by = "patient_id") %>%
+  left_join(df.psycho.post %>% select(patient_id, post.psycho), by = "patient_id")
+  
+# fill NA
+comedication <- comedication %>%
+  mutate(
+    pre.metformin = ifelse(is.na(pre.metformin), 0, pre.metformin),
+    post.metformin = ifelse(is.na(post.metformin), 0, post.metformin),
+    pre.dpp4 = ifelse(is.na(pre.dpp4), 0, pre.dpp4), 
+    post.dpp4 = ifelse(is.na(post.dpp4), 0, post.dpp4),
+    pre.sglt2 = ifelse(is.na(pre.sglt2), 0, pre.sglt2),
+    post.sglt2 = ifelse(is.na(post.sglt2), 0, post.sglt2),
+    pre.su = ifelse(is.na(pre.su), 0, pre.su),
+    post.su = ifelse(is.na(post.su), 0, post.su),
+    pre.thiaz = ifelse(is.na(pre.thiaz), 0, pre.thiaz),
+    post.thiaz = ifelse(is.na(post.thiaz), 0, post.thiaz),
+    pre.insulin = ifelse(is.na(pre.insulin), 0, pre.insulin),
+    post.insulin = ifelse(is.na(post.insulin), 0, post.insulin),
+    pre.depress = ifelse(is.na(pre.depress), 0, pre.depress),
+    post.depress = ifelse(is.na(post.depress), 0, post.depress),
+    pre.convul = ifelse(is.na(pre.convul), 0, pre.convul),
+    post.convul = ifelse(is.na(post.convul), 0, post.convul),
+    pre.psycho = ifelse(is.na(pre.psycho), 0, pre.psycho),
+    post.psycho = ifelse(is.na(post.psycho), 0, post.psycho)
+  )
+
+#proportion of pre | post medication
+summary<- comedication %>% 
+  filter(pre.dm == 0 & post.dm == 0) %>%
+  summarise(
+    obs = n(),
+    prop.pre.metformin = sum(pre.metformin ==1)/obs,
+    prop.post.metformin = sum(post.metformin ==1)/obs,
+    prop.pre.dpp4 = sum(pre.dpp4==1)/obs,
+    prop.post.dpp4 = sum(post.dpp4==1)/obs,
+    prop.pre.sglt2 = sum(pre.sglt2==1)/obs,
+    prop.post.sglt2 = sum(post.sglt2==1)/obs,
+    prop.pre.su = sum(pre.su==1)/obs,
+    prop.post.su = sum(post.su==1)/obs,
+    prop.pre.thiaz = sum(pre.thiaz==1)/obs,
+    prop.post.thiaz = sum(post.thiaz==1)/obs,
+    prop.pre.insulin = sum(pre.insulin==1)/obs,
+    prop.post.insulin = sum(post.insulin==1)/obs,
+    prop.pre.depress = sum(pre.depress==1)/obs,
+    prop.post.depress = sum(post.depress==1)/obs,
+    prop.pre.convul = sum(pre.convul==1)/obs,
+    prop.post.convul = sum(post.convul==1)/obs,
+    prop.pre.psycho = sum(pre.psycho==1)/obs,
+    prop.post.psycho = sum(post.psycho==1)/obs
+  ) %>% print()
+```
+
+

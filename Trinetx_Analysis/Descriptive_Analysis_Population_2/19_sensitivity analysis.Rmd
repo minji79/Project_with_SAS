@@ -1,0 +1,555 @@
+---
+title: "Sensitivity analysis"
+output: html_document
+date: "2025-04-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## setting 
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(gt)
+library(patchwork)
+library(stringr)
+
+df <- readRDS("studypopulation.rds")
+names(df.2021)
+
+# 2021-2023 cohort with follow-up between 2021-2025
+df.2020 <- df %>% filter("2020-06-01" <= bs_date & bs_date <= "2023-05-31") # 37359
+# set glp1 initiation within only follow-up period : no need to adjusted
+df.2020 <- df.2020 %>% rename(glp1 = glp1_user)
+df.2020 <- df.2020 %>% mutate(glp1 = if_else(is.na(glp1), 0, glp1))
+
+# 2015-2017 cohort with follow-up between 2015-2019
+df.2015 <- df %>% filter(bs_date <= "2017-12-31")
+# set glp1 initiation within only follow-up period
+df.2015 <- df.2015 %>% mutate(
+  glp1 = ifelse(glp1_initiation_date <= "2019-12-31", 1, 0)
+) 
+```
+
+### SENSITIVITY ANALYSIS 1 - Analysis using cohorts with a more recent time frame
+
+# 1. descriptive analysis 
+```{r}
+# 2015
+nrow(df.2015)
+table(df.2015$glp1)
+595/35032 # 0.01698447
+
+# 2020
+nrow(df.2020)
+table(df.2020$glp1)
+5762/45650 # 0.1262212
+
+# histogram
+glp1 <- df.2020 %>% filter(glp1 == 1)
+glp1 <- glp1 %>%
+  mutate(
+    time.to.glp1 = case_when(
+      365*0 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*1 ~ "within 1yr",
+      365*1 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*2 ~ "in 1-2 year",
+      365*2 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*3 ~ "in 2-3 year",
+      365*3 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*4 ~ "in 3-4 year",
+      365*4 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*5 ~ "in 4-5 year",
+      365*5 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*6 ~ "in 5-6 year",
+      365*6 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*7 ~ "in 6-7 year",
+      365*7 <= (glp1_initiation_date - bs_date)  ~ "after 7 year"
+    )
+  ) %>%
+  mutate(
+    time.to.glp1 = factor(time.to.glp1, 
+                          levels = c("within 1yr", "in 1-2 year", "in 2-3 year", 
+                                     "in 3-4 year", "in 4-5 year", "in 5-6 year", 
+                                     "in 6-7 year", "after 7 year"))
+  )
+
+glp1$time.to.glp1 <- as.factor(glp1$time.to.glp1)
+table(glp1$time.to.glp1)
+nrow(df.2021)
+952	+2439+	2709 + 2373	+ 2086
+10559/112858 # 0.09356005
+
+801	+2154	+2298 + 1761	+1052
+8066/63740 # 0.1265453
+
+650     +    1767      +   1438    + 560	+29
+4444/37359
+
+807	+2225+	2454
+
+table_data <- glp1 %>%
+  group_by(time.to.glp1) %>%
+  summarise(
+    total.glp1 = 2499,
+    number.glp1 = n(),
+    prop.glp1 = n()/total.glp1*100) 
+
+table_data
+
+plot <- ggplot(data = table_data, aes(x = time.to.glp1, y = number.glp1)) +
+  geom_col(fill = "gray") + 
+  labs(x = "Time to GLP-1 initiation after bariatric surgery",
+       y = "The number of GLP-1 initiators") +
+  scale_x_discrete(limits = sort(unique(table_data$time.to.glp1))) +  # Corrected this line
+  theme_classic()
+
+plot
+
+table_data <- table_data %>%
+  mutate(
+    prop.glp1 = sprintf("%.2f%%", prop.glp1),  # Format as percentage
+    label_text = paste0(number.glp1, "\n(", prop.glp1, ")")  # Add line break using "\n"
+  )
+
+# Table data (summarize counts for each year)
+table <- table_data %>%
+  ggplot(aes(x = time.to.glp1, y = 1, label = label_text)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Number of GLP-1 initiators in each year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+
+table
+
+combined_plot <- grid.arrange(plot, table, ncol = 1, heights = c(4, 2)) # Adjust heights if necessary
+
+ggsave("eFigure2_his_sensitivity.png", plot = combined_plot, width = 7, height = 5, dpi = 300, bg = "white")
+```
+
+
+### 1. Set variables for the survival analysis
+with 2017-2023 cohort & 2019-2023 cohort
+```{r}
+# address Null
+df.2015$glp1_initiation_date <- ifelse(is.na(df.2015$glp1_initiation_date), Inf, df.2015$glp1_initiation_date)
+df.2015$death_date <- ifelse(is.na(df.2015$death_date), Inf, df.2015$death_date)
+
+# generate 'study end date' + numeric
+df.2015$study_end_date <- as.numeric(as.Date("2019-12-31"))
+df.2015$bs_date <- as.numeric(df.2015$bs_date)
+df.2015$glp1_initiation_date <- as.numeric(df.2015$glp1_initiation_date)
+df.2015$death_date <- as.numeric(df.2015$death_date)
+df.2015$entry <- 0
+
+# exit_date
+df.2015 <- df.2015 %>% 
+  mutate(
+    followup.end.date = pmin(glp1_initiation_date, death_date, study_end_date, na.rm = TRUE),
+    glp1 = ifelse(glp1_initiation_date > followup.end.date, 0, glp1),
+    time.for.glp1 = as.numeric(followup.end.date - bs_date)
+  )
+head(df.2015)
+# modify dm definition
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(df.2015, plot=FALSE)
+```
+### 2. set object for survival analysis
+```{r}
+# Set the data as survival data
+surv_obj <- Surv(df.2015$entry, df.2015$time.for.glp1, df.2015$glp1)
+summary(surv_obj)
+```
+### 3. Descriptive analysis with the KM curve
+1. Cumulative incidence of GLP-1 initiation after bariatric surgery
+```{r}
+km.curve <- ggsurvplot_combine(
+  fit = list(
+    "Overall" = survfit(Surv(time.for.glp1, glp1) ~ 1, data = df.2015),
+    "Stratified" = survfit(Surv(time.for.glp1, glp1) ~ bs_type, data = df.2015)
+  ),
+  data = df.2015,  # Ensure a common dataset is provided
+  conf.int = TRUE, 
+  risk.table = FALSE,
+  #title = "Cumulative Incidence Curves",
+  xlab = "Follow-up time [years]",
+  ylab = "Cumulative Incidence",
+  xscale = 365.25, 
+  break.x.by = 365.25,
+  break.y.by = 0.1,
+  ylim = c(0, 0.3),
+  censor = FALSE,
+  fun = "event",
+  legend.title = "Cohort: ",
+  legend.lab = c("Overall", "RYGB patients", "SG patients")
+)
+km.curve
+```
+2. cumulative incidence table
+```{r}
+model_0 <- survfit(surv_obj ~ 1, data=df.2015)
+
+# Calculate the cumulative incidence at the specific time points
+time_points <- c(0, 1, 2, 3, 4) * 365.25
+summary_model <- summary(model_0, times = time_points)
+
+# Extract the time points and cumulative incidence (1 - survival probability) as percentages
+cum_incidence_data <- data.frame(
+  time = time_points / 365.25,    # Convert time to years
+  cum_incidence = round((1 - summary_model$surv) * 100 , 2) # Cumulative incidence as a percentage
+)
+
+# table 
+cum_incidence_table <- cum_incidence_data %>%
+  mutate(Cumulative_Incidence = sprintf("%.2f%%", cum_incidence)) %>%  # Format as percentages
+  ggplot(aes(x = factor(time), y = 1, label = Cumulative_Incidence)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Cumulative Incidence (%) by Year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+print(cum_incidence_table)
+```
+3, incidence rate table
+```{r}
+calculate_ir <- function(data, year) {
+  if (year == 0) {
+    return(data.frame(
+      TimeatRisk = 0,
+      events = 0,
+      IncidenceRate = 0,
+      NumberofRows = 0,
+      NumberofSubjects = 0
+    ))
+  }
+
+  year_minus_one <- year - 1
+
+  data %>%
+    filter(time.for.glp1 >= 365.25 * year_minus_one,
+           time.for.glp1 < 365.25 * year) %>%
+    summarise(
+      TimeatRisk = sum((time.for.glp1 - 365.25 * year_minus_one) / 365.25),
+      events = sum(glp1),
+      IncidenceRate = (events / TimeatRisk) * 1000,
+      NumberofRows = n(),
+      NumberofSubjects = n_distinct(patient_id)
+    )
+}
+
+# table
+create_ir_table <- function(ir_data) {
+  ir_data %>%
+    mutate(
+      year = 0:4,
+      IncidenceRate = sprintf("%.2f", IncidenceRate)
+    ) %>%
+    ggplot(aes(x = factor(year), y = 1, label = IncidenceRate)) +
+    geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) +
+    labs(title = "Incidence Rate [1,000 person-year] at Year") +
+    theme_classic2() +
+    theme(
+      axis.title = element_blank(),
+      axis.text.y = element_blank(),
+      #axis.text.x = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(vjust = 0, hjust = 0.01, size = 12)
+    )
+}
+
+# Calculate incidence rates for years 0-8
+years <- 0:4
+ir_list <- lapply(years, function(year) calculate_ir(df.2015, year))
+ir <- do.call(rbind, ir_list) # Combine all results
+
+ir_table <- create_ir_table(ir)
+print(ir_table)
+```
+# combine the plots
+```{r}
+library(patchwork)
+combined_plot <- (km.curve$plot / cum_incidence_table / ir_table) + plot_layout(heights = c(3.5, 0.6, 0.6))
+print(combined_plot)
+
+ggsave("Figure2_CIcurve_sensitivity_2015.png", plot = combined_plot, width = 7, height = 5, dpi = 300, bg = "white")
+
+1/7
+```
+
+### SENSITIVITY ANALYSIS 2 - Analysis using cohorts with glp1 with obesity indications
+```{r}
+nrow(df)
+table(df$Molecule)
+df %>% select(brand, Molecule) %>% filter(Molecule == "Semaglutide") %>% print()
+
+100-16.7
+
+1497+3223+333
+
+# total glp1
+6067
+# Dulaglutide
+935/6067*100
+67/6067*100
+1497/6067 *100    
+12/6067 *100      
+3223/6067 *100    
+333/6067 *100    
+
+5053/35286
+
+names(df.s)
+
+
+# new definition of GLP-1 initiation : "Semaglutide", "Tirzepatide", "Liraglutide"
+# event
+df.s <- df %>% mutate(event = ifelse(Molecule %in% c("Semaglutide", "Tirzepatide", "Liraglutide"), 1, 0))
+table(df.s$event)
+14196 /112858
+```
+### with new definition -> run sensitivity analysis
+### 1. Set variables for the survival analysis
+```{r}
+# address Null
+df.s$glp1_initiation_date <- ifelse(is.na(df.s$glp1_initiation_date), Inf, df.s$glp1_initiation_date)
+df.s$death_date <- ifelse(is.na(df.s$death_date), Inf, df.s$death_date)
+
+# event
+df.s <- df.s %>% mutate(event.date = ifelse(event ==1, glp1_initiation_date, Inf))
+#view(df.s)
+
+# generate 'study end date' + numeric
+df.s$study_end_date <- as.numeric(as.Date("2025-05-31"))
+df.s$bs_date <- as.numeric(df.s$bs_date)
+df.s$glp1_initiation_date <- as.numeric(df.s$glp1_initiation_date)
+df.s$death_date <- as.numeric(df.s$death_date)
+df.s$entry <- 0
+names(df.s)
+
+# exit_date
+df.s <- df.s %>% 
+  mutate(
+    followup.end.date = pmin(event.date, glp1_initiation_date, study_end_date),
+    glp1 = ifelse(event.date > followup.end.date, 0, event),
+    time.for.glp1 = as.numeric(followup.end.date - bs_date)
+  )
+summary(df.s$followup.end.date)
+summary(df.s$time.for.glp1)
+
+# check missingness - bmi_index, glp1_initiation_date, death_date
+mice::md.pattern(df.s, plot=FALSE)
+```
+### 2. set object for survival analysis
+```{r}
+# Set the data as survival data
+surv_obj <- Surv(df.s$entry, df.s$time.for.glp1, df.s$event)
+summary(surv_obj)
+```
+### 3. Descriptive analysis with the KM curve
+1. Cumulative incidence of GLP-1 initiation after bariatric surgery
+```{r}
+km.curve <- ggsurvplot_combine(
+  fit = list(
+    "Overall" = survfit(Surv(time.for.glp1, event) ~ 1, data = df.s),
+    "Stratified" = survfit(Surv(time.for.glp1, event) ~ bs_type, data = df.s)
+  ),
+  data = df.s,  # Ensure a common dataset is provided
+  conf.int = TRUE, 
+  risk.table = FALSE,
+  #title = "Cumulative Incidence Curves",
+  xlab = "Follow-up time [years]",
+  ylab = "Cumulative Incidence",
+  xscale = 365.25, 
+  break.x.by = 365.25,
+  break.y.by = 0.1,
+  ylim = c(0, 0.3),
+  censor = FALSE,
+  fun = "event",
+  legend.title = "Cohort: ",
+  legend.lab = c("Overall", "RYGB patients", "SG patients")
+)
+km.curve
+```
+## 2. cumulative incidence table
+```{r}
+model_0 <- survfit(surv_obj ~ 1, data=df.s)
+
+# Calculate the cumulative incidence at the specific time points
+time_points <- c(0, 1, 2, 3, 4, 5, 6, 7, 8) * 365.25
+summary_model <- summary(model_0, times = time_points)
+
+# Extract the time points and cumulative incidence (1 - survival probability) as percentages
+cum_incidence_data <- data.frame(
+  time = time_points / 365.25,    # Convert time to years
+  cum_incidence = round((1 - summary_model$surv) * 100 , 2) # Cumulative incidence as a percentage
+)
+
+# table 
+cum_incidence_table <- cum_incidence_data %>%
+  mutate(Cumulative_Incidence = sprintf("%.2f%%", cum_incidence)) %>%  # Format as percentages
+  ggplot(aes(x = factor(time), y = 1, label = Cumulative_Incidence)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Cumulative Incidence (%) by Year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+print(cum_incidence_table)
+```
+## 3. incidence rate curve
+```{r}
+calculate_ir <- function(data, year) {
+  if (year == 0) {
+    return(data.frame(
+      TimeatRisk = 0,
+      events = 0,
+      IncidenceRate = 0,
+      NumberofRows = 0,
+      NumberofSubjects = 0
+    ))
+  }
+
+  year_minus_one <- year - 1
+
+  data %>%
+    filter(time.for.glp1 >= 365.25 * year_minus_one,
+           time.for.glp1 < 365.25 * year) %>%
+    summarise(
+      TimeatRisk = sum((time.for.glp1 - 365.25 * year_minus_one) / 365.25),
+      events = sum(glp1),
+      IncidenceRate = (events / TimeatRisk) * 1000,
+      NumberofRows = n(),
+      NumberofSubjects = n_distinct(patient_id)
+    )
+}
+
+# table
+create_ir_table <- function(ir_data) {
+  ir_data %>%
+    mutate(
+      year = 0:8,
+      IncidenceRate = sprintf("%.2f", IncidenceRate)
+    ) %>%
+    ggplot(aes(x = factor(year), y = 1, label = IncidenceRate)) +
+    geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) +
+    labs(title = "Incidence Rate [1,000 person-year] at Year") +
+    theme_classic2() +
+    theme(
+      axis.title = element_blank(),
+      axis.text.y = element_blank(),
+      #axis.text.x = element_blank(),
+      panel.grid = element_blank(),
+      plot.title = element_text(vjust = 0, hjust = 0.01, size = 12)
+    )
+}
+
+# Calculate incidence rates for years 0-8
+years <- 0:8
+ir_list <- lapply(years, function(year) calculate_ir(df.s, year))
+ir <- do.call(rbind, ir_list) # Combine all results
+
+ir_table <- create_ir_table(ir)
+print(ir_table)
+```
+# combine the plots
+```{r}
+library(patchwork)
+combined_plot <- (km.curve$plot / cum_incidence_table / ir_table) + plot_layout(heights = c(3.5, 0.6, 0.6))
+print(combined_plot)
+
+ggsave("Figure2_CIcurve_sensitivity_glp1.png", plot = combined_plot, width = 7, height = 5, dpi = 300, bg = "white")
+
+1/7
+```
+## 4. histogram
+```{r}
+# histogram
+glp1 <- df.s %>% filter(event == 1)
+glp1 <- glp1 %>%
+  mutate(
+    time.to.glp1 = case_when(
+      365*0 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*1 ~ "within 1yr",
+      365*1 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*2 ~ "in 1-2 year",
+      365*2 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*3 ~ "in 2-3 year",
+      365*3 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*4 ~ "in 3-4 year",
+      365*4 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*5 ~ "in 4-5 year",
+      365*5 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*6 ~ "in 5-6 year",
+      365*6 <= (glp1_initiation_date - bs_date) & (glp1_initiation_date - bs_date) < 365*7 ~ "in 6-7 year",
+      365*7 <= (glp1_initiation_date - bs_date)  ~ "after 7 year"
+    )
+  ) %>%
+  mutate(
+    time.to.glp1 = factor(time.to.glp1, 
+                          levels = c("within 1yr", "in 1-2 year", "in 2-3 year", 
+                                     "in 3-4 year", "in 4-5 year", "in 5-6 year", 
+                                     "in 6-7 year", "after 7 year"))
+  )
+
+glp1$time.to.glp1 <- as.factor(glp1$time.to.glp1)
+table(glp1$time.to.glp1)
+
+table_data <- glp1 %>%
+  group_by(time.to.glp1) %>%
+  summarise(
+    total.glp1 = 5206,
+    number.glp1 = n(),
+    prop.glp1 = n()/total.glp1*100) 
+
+table_data
+
+plot <- ggplot(data = table_data, aes(x = time.to.glp1, y = number.glp1)) +
+  geom_col(fill = "gray") + 
+  labs(x = "Time to GLP-1 initiation after bariatric surgery",
+       y = "The number of GLP-1 initiators") +
+  scale_x_discrete(limits = sort(unique(table_data$time.to.glp1))) +  # Corrected this line
+  theme_classic()
+
+plot
+
+table_data <- table_data %>%
+  mutate(
+    prop.glp1 = sprintf("%.2f%%", prop.glp1),  # Format as percentage
+    label_text = paste0(number.glp1, "\n(", prop.glp1, ")")  # Add line break using "\n"
+  )
+
+# Table data (summarize counts for each year)
+table <- table_data %>%
+  ggplot(aes(x = time.to.glp1, y = 1, label = label_text)) +
+  geom_text(size = 3.5, vjust = -0.3, hjust = 0.5) + # Adjust size, vertical, and horizontal position
+  labs(title = "Number of GLP-1 initiators in each year") +
+  theme_classic2() +
+  theme(
+    axis.title = element_blank(),
+    axis.text.y = element_blank(),
+    #axis.text.x = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(vjust = 0, hjust = 0.01, size =12)
+  )
+5206/35286
+table
+
+combined_plot <- grid.arrange(plot, table, ncol = 1, heights = c(4, 2)) # Adjust heights if necessary
+
+ggsave("eFigure2_his_sensitivity2.png", plot = combined_plot, width = 7, height = 5, dpi = 300, bg = "white")
+```
+
+

@@ -1,0 +1,148 @@
+---
+title: "17_Weight_analysis_etable4"
+output: html_document
+date: "2025-02-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## setting
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmtest)
+library(patchwork)
+library(splines)
+library(nlme)
+library(clubSandwich)
+library(rjags)
+library(JM)
+library(lmerTest)
+# long dataset for weight
+kg <- read_sas("weight_v01.sas7bdat")  
+kg <- kg %>% dplyr::select(-date,-value)
+
+# height 
+h.avg <- read_sas("studypopulation_height_avg.sas7bdat")
+h <- read_sas("studypopulation_height.sas7bdat")
+
+# population information
+df <- readRDS("studypopulation.rds")
+
+# remain only study population
+kg <- kg %>%
+  filter(patient_id %in% df$patient_id) %>%
+  left_join(df, by = "patient_id")
+kg %>% filter(glp1_user ==0) %>% select(patient_id) %>% distinct() %>% count() %>% print() # 9382
+table(kg$glp1_user)
+```
+## Baseline weight
+```{r}
+# weight assessment window = -365
+weight.baseline <- kg %>%
+  filter(weight_date <= bs_date & weight_date >= bs_date - 365)
+
+weight.baseline <- weight.baseline %>% 
+  group_by(patient_id) %>%
+  arrange(patient_id, weight_date) %>%
+  mutate(
+    weight.baseline = last(weight_kg),
+    weight.baseline.date = last(weight_date)
+    )
+
+weight.baseline <- weight.baseline %>% dplyr::select(patient_id, glp1_user, bs_type, pre.dm, weight.baseline, weight.baseline.date) %>% distinct() # 8789
+nrow(weight.baseline)
+
+total <- weight.baseline %>%
+  ungroup() %>%
+  filter(glp1_user==0) %>%
+  group_by(bs_type) %>%
+  summarise(
+    median.baseline = median(weight.baseline, na.rm = TRUE),
+    q1.baseline = quantile(weight.baseline, 0.25, na.rm = TRUE),
+    q3.baseline = quantile(weight.baseline, 0.75, na.rm = TRUE)
+  )
+
+print(total)
+```
+## Post-surgical Weight - nadir
+```{r}
+kg <- kg %>% left_join(weight.baseline %>% dplyr::select(patient_id, weight.baseline), by = "patient_id")
+
+# remain post-surgical value
+post.weight <- kg %>% filter(bs_date < weight_date)
+
+# drop individuals without baseline weight
+post.weight <- post.weight %>% filter(!is.na(weight.baseline)) %>% distinct() # 7015 individuals
+
+n <- post.weight %>% filter(glp1_user==0) %>% distinct(patient_id) %>% print()
+nrow(n)
+
+post.weight <- post.weight %>%
+  mutate(
+    twl = weight.baseline - weight_kg,
+    pct_twl = - twl/weight.baseline*100
+    )
+
+# nadir weight at 1year (mean of all measurement within +/- 3 months)
+## assessment window
+assessment.window = 90
+
+nadir.weight <- post.weight %>%
+  filter(bs_date + 365 - assessment.window <=weight_date & weight_date <=bs_date + 365 + assessment.window) # 5937 distinct individuals
+
+nadir.weight <- nadir.weight %>%
+  group_by(patient_id) %>%
+  mutate(
+    nadir.weight_kg = mean(weight_kg)
+  )
+
+nadir.weight <- nadir.weight %>%
+  group_by(patient_id) %>%
+  mutate(
+    nadir.weight.loss = nadir.weight_kg - weight.baseline,
+    nadir.pct_change = nadir.weight.loss/weight.baseline*100
+  )
+
+nadir.weight <- nadir.weight %>% dplyr::select(patient_id, glp1_user, bs_type, pre.dm, nadir.weight.loss, nadir.pct_change) %>% distinct() # 5583
+nrow(nadir.weight)
+
+# % Total weight loss from baseline to year 1 (median, IQR)
+total <- nadir.weight %>%
+  ungroup() %>%
+  #filter(glp1_user==0) %>%
+  #group_by(pre.dm) %>%
+  summarise(
+    median.loss.pct = median(nadir.pct_change, na.rm = TRUE),
+    q1.loss.pct = quantile(nadir.pct_change, 0.25, na.rm = TRUE),
+    q3.loss.pct = quantile(nadir.pct_change, 0.75, na.rm = TRUE)
+  )
+print(total)
+
+# Total weight loss from baseline to year 1 in kg (median, IQR)
+total <- nadir.weight %>%
+  ungroup() %>%
+  filter(glp1_user==0) %>%
+  group_by(bs_type) %>%
+  summarise(
+    median.loss = median(nadir.weight.loss, na.rm = TRUE),
+    q1.loss = quantile(nadir.weight.loss, 0.25, na.rm = TRUE),
+    q3.loss = quantile(nadir.weight.loss, 0.75, na.rm = TRUE)
+  )
+print(total)
+```
+
+
+
+

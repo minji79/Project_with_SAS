@@ -1,0 +1,211 @@
+---
+title: "15_postBMI_LMM"
+output: html_document
+date: "2025-02-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Setting
+```{r}
+library(tidyverse)
+library(haven)
+library(janitor)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(lme4)
+library(lmtest)
+library(patchwork)
+library(splines)
+library(nlme)
+library(clubSandwich)
+library(rjags)
+library(JM)
+library(lmerTest)
+library(dplyr)
+
+bmi <- readRDS("post_bmi_studypopulation_2ndanalysis.rds")
+names(bmi)
+```
+### calculate BMI just before glp1 initiation
+```{r}
+bmi.glp1 <- bmi %>% filter(glp1_user ==1)
+bmi.glp1 <- bmi.glp1 %>% filter(glp1_initiation_date - 180 <= bmi_date & bmi_date <= glp1_initiation_date)
+bmi.glp1 <- bmi.glp1 %>% arrange(patient_id, desc(bmi_date))
+head(bmi.glp1)
+
+# remain the first row within individual
+bmi.glp1 <- bmi.glp1 %>% group_by(patient_id) %>% slice(1) %>% ungroup()
+
+# median value of BMI 
+bmi.glp1 %>% summarise(
+  median.bmi = median(bmi),
+  p25.bmi = quantile(bmi, p = 0.25),
+  p75.bmi = quantile(bmi, p = 0.75)
+)
+```
+
+
+
+### 1. remove outlier definition with more than 5 BMI per month
+```{r}
+# Ensure bmi_measurement_date is in Date format
+bmi <- bmi %>% mutate(bmi_date = as.Date(bmi_date))
+
+# Sort data by patient_id and date
+bmi <- bmi %>%
+  arrange(patient_id, bmi_date) %>%
+  group_by(patient_id) %>%
+  mutate(
+    time_diff_months = as.numeric(difftime(bmi_date, lag(bmi_date), units = "days")) / 30.44,
+    bmi_diff = bmi - lag(bmi),
+    bmi_change_per_month = bmi_diff / time_diff_months
+  ) %>%
+  ungroup()
+
+# Exclude outliers where BMI change exceeds 4 per month
+bmi_clean <- bmi %>%
+  filter(is.na(bmi_change_per_month) | abs(bmi_change_per_month) <= 5)
+
+# Print summary of removed outliers
+bmi_outliers <- bmi %>%
+  filter(!is.na(bmi_change_per_month) & abs(bmi_change_per_month) > 5)
+
+cat("Total Outliers Removed:", nrow(bmi_outliers), "\n") # 131211
+
+# View the cleaned dataset
+head(bmi_clean)
+
+# remove the covariates
+bmi_clean <- bmi_clean %>% dplyr::select(- time_diff_months, - bmi_diff, - bmi_change_per_month, -bmi_index, -glp1_initiation_date, -death_date)
+
+bmi_clean <- bmi_clean %>% filter(!is.na(bs_type)) # remove 15 individuals 
+
+bmi_clean <- bmi_clean %>% rename(glp1 = glp1_user)
+# exploring outcome variable (BMI)
+hist(bmi_clean$bmi)
+
+# check missingness
+mice::md.pattern(bmi_clean, plot=FALSE)
+```
+### 2. BMI at 1 year
+```{r}
+# baseline BMI stratified by diabetes status
+bmi %>% 
+  #group_by(cc_diabetes) %>%
+  summarise(
+    #mean.bmi.baseline = mean(bmi_index, na.rm = TRUE),
+    #std.bmi.baseline = sd(bmi_index, na.rm = TRUE),
+    median.bmi.baseline = median(bmi_index, na.rm = TRUE),
+    q1.bmi.baseline = quantile(bmi_index, 0.25, na.rm = TRUE),
+    q3.bmi.baseline = quantile(bmi_index, 0.75, na.rm = TRUE)
+  )
+
+# nadir BMI at 1year (mean of all measurement within +/- 3 months)
+## assessment window
+assessment.window = 90
+names(bmi)
+nadir.bmi <- bmi %>%
+  filter(bs_date + 365 - assessment.window <= bmi_date & bmi_date <=bs_date + 365 + assessment.window) # 9596 distinct individuals
+
+# individuals with index bmi
+nadir.bmi <- nadir.bmi %>% filter(!is.na(bmi_index)) # 7408	
+nadir.bmi %>% group_by(cc_diabetes) %>% distinct(patient_id) %>% count()
+  
+nadir.bmi <- nadir.bmi %>%
+  group_by(patient_id) %>%
+  mutate(
+    nadir.bmi = mean(bmi),
+    nadir.bmi.loss = nadir.bmi - bmi_index,
+    nadir.bmi.pct_change = nadir.bmi.loss/bmi_index*100
+  ) %>% ungroup()
+
+nadir.bmi <- nadir.bmi %>% dplyr::select(patient_id, glp1_user, cc_diabetes, bmi_index, nadir.bmi, nadir.bmi.loss, nadir.bmi.pct_change) %>% distinct()
+
+nadir.bmi %>% group_by(glp1_user) %>% summarise(
+  median.nadir.bmi.loss = median(nadir.bmi.loss),
+  q1.nadir.bmi.loss = quantile(nadir.bmi.loss, 0.25),
+  q3.nadir.bmi.loss = quantile(nadir.bmi.loss, 0.75),
+  median.nadir.bmi.pct_change = median(nadir.bmi.pct_change),
+  q1.nadir.bmi.pct_change = quantile(nadir.bmi.pct_change, 0.25),
+  q3.nadir.bmi.pct_change = quantile(nadir.bmi.pct_change, 0.75)
+  )
+
+nadir.bmi %>% 
+  #group_by(cc_diabetes) %>% 
+  summarise(
+  #median.nadir.bmi.loss = median(nadir.bmi.loss),
+  #q1.nadir.bmi.loss = quantile(nadir.bmi.loss, 0.25),
+  #q3.nadir.bmi.loss = quantile(nadir.bmi.loss, 0.75),
+  median.nadir.bmi.pct_change = median(nadir.bmi.pct_change),
+  q1.nadir.bmi.pct_change = quantile(nadir.bmi.pct_change, 0.25),
+  q3.nadir.bmi.pct_change = quantile(nadir.bmi.pct_change, 0.75)
+  )
+```
+### 3. BMI at the GLP1 initiation
+```{r}
+names(bmi)
+bmi.glp1 <- bmi %>% filter(glp1_user ==1)
+bmi.glp1 <- bmi.glp1 %>% arrange(patient_id) %>% filter(glp1_initiation_date - 30*6 <= bmi_date & bmi_date <= glp1_initiation_date)
+bmi.glp1 <- bmi.glp1 %>% group_by(patient_id) %>% slice(1) %>% ungroup()
+
+bmi.glp1 %>% summarise(
+   median.bmi.glp1 = median(bmi),
+   q1.bmi.glp1 = quantile(bmi, 0.25),
+   q3.bmi.glp1 = quantile(bmi, 0.75)
+   ) 
+
+```
+##
+
+```{r}
+# Create a data frame with the plot data
+forest_data <- data.frame(
+  Characteristic = c("Total", "Sex", "Female", "Male", "Age, y", "<30", "30-45", "≥45", 
+                     "BMI", "<42", "≥42", "Diabetes", "No", "Yes"),
+  Odds_Ratio = c(0.71, NA, 0.77, 0.60, NA, 1.55, 0.85, 0.48, NA, 0.60, 0.97, NA, 0.80, 0.23),
+  Lower_CI = c(0.47, NA, 0.47, 0.28, NA, 0.49, 0.43, 0.25, NA, 0.36, 0.47, NA, 0.51, 0.05),
+  Upper_CI = c(1.08, NA, 1.28, 1.30, NA, 4.88, 1.67, 0.91, NA, 1.02, 1.99, NA, 1.24, 1.11),
+  Adjusted_P = c(0.67, NA, NA, NA, 0.19, NA, NA, NA, 0.30, NA, NA, 0.13, NA, NA)
+)
+
+# Create the forest plot
+ggplot(forest_data[!is.na(forest_data$Odds_Ratio),], 
+       aes(x = Characteristic, y = Odds_Ratio)) +
+  geom_pointrange(aes(ymin = Lower_CI, ymax = Upper_CI),
+                  shape = 18, size = 0.5, 
+                  position = position_dodge(width = 0.5)) +
+  geom_hline(yintercept = 1, linetype = 2, color = "red") +
+  scale_y_log10(breaks = c(0.25, 0.5, 1, 2, 4, 8),
+                limits = c(0.1, 8)) +
+  coord_flip() +
+  labs(x = "", y = "Odds Ratio (95% CI)", 
+       title = "Forest Plot of Odds Ratios") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(hjust = 0))
+```
+
+### 4. LMM
+```{r}
+# Standardize continuous variables
+bmi_clean$time_scaled <- scale(bmi_clean$time)
+names(bmi_clean)
+
+# model 0 - with glp1 indicator
+model.lmer0 <- lmer(data=bmi_clean, bmi ~ glp1 + ns(time_scaled,3):glp1 + (time_scaled | patient_id), REML=FALSE)
+summary(model.lmer0)
+
+# model 1 - add baseline covariates
+model.lmer1 <- lmer(data=bmi_clean, bmi ~ glp1 + ns(time_scaled,3):glp1 + (time_scaled | patient_id) + age_at_bs + sex + race + ethnicity + marital_status + patient_regional_location +  bs_type + bmi_index_cat + bmi + cc_diabetes + cc_htn + cc_dyslip + cc_osa + cc_hf + cc_liver + cc_ckd + cc_pos + cc_gerd  + cm_dm + cm_ob + cm_depres + cm_psycho + cm_convul, REML=FALSE)
+summary(model.lmer1)
+```
+
+
+
+

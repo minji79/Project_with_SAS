@@ -1,0 +1,458 @@
+---
+title: "13_Forest_Plot"
+output: html_document
+date: "2025-02-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### setting
+```{r}
+# Load necessary libraries
+install.packages("forestplot")
+library(ggplot2)
+library(dplyr)
+library(forestplot)
+library(grid)
+```
+## cox model
+```{r}
+# Create the dataset
+base_data1 <- tibble(
+  study = c(
+    "Age", 
+    "Sex (ref=Male)", 
+    "   Female", 
+    "Race (ref=White)", 
+    "   Black",
+    "   Asian", 
+    "Ethinicity (ref=Not Hispanic)        ", 
+    "   Hispanic or Latino",
+    "Marital status (ref=Single)", 
+    "   Married",
+    "Regional location (ref=West)         ",
+    "   South",
+    "   Northeast",
+    "   Midwest"
+  ),    
+  mean  = c(1.00, NA, 1.61, NA, 1.27, 1.15, NA, 1.09, NA, 1.14, NA, 1.10, 1.62, 1.33), 
+  lower = c(1.00, NA, 1.54, NA, 1.22, 0.96, NA, 1.03, NA, 1.09, NA, 1.04, 1.53, 1.24),
+  upper = c(1.00, NA, 1.69, NA, 1.33, 1.38, NA, 1.15, NA, 1.18, NA, 1.18, 1.72, 1.42),
+  HR_CI = c(
+    "1.00 (1.00, 1.00)",
+    NA,
+    "1.61 (1.54, 1.69)",
+    NA,
+    "1.27 (1.22, 1.33)",
+    "1.15 (0.96, 1.38)",
+    NA, 
+    "1.09 (1.03, 1.15)",
+    NA, 
+    "1.14 (1.09, 1.18)",
+    NA, 
+    "1.10 (1.04, 1.18)",
+    "1.62 (1.53, 1.72)",
+    "1.33 (1.24, 1.42)"
+    )
+)
+
+base_data2 <- tibble(
+  study = c(
+    "Bariatric surgery type (ref=RYGB)",
+    "   Sleeve gastrectomy",
+   "BMI at baseline (ref=Overweight)",
+    "   Obesity - Class1",
+    "   Obesity - Class2",
+    "   Obesity - Class3",
+    "Comorbidities",
+    "   Type 2 diabetes",
+    "   Hypertension",
+    "   Dyslipidemia",
+    "   Obstructive sleep apnea",
+    "   Heart failure",
+    "   Fatty liver disease",
+    "   Polycystic ovarian syndrome",
+    "   Gastroesophageal reflux disease",
+    "Concurrent medication",
+    "   Anti-diabetes medications",
+    "   Anti-obesity medications",
+    "   Antidepressants",
+    "   Antipsychotics",
+    "   Anticonvulsants"
+  ),    
+  mean  = c(NA, 1.42, NA, 1.73, 2.19, 2.69, NA, 1.34, 1.16, 1.19, 1.31, 1.07, 1.24, 1.19, 0.67, NA, 1.37, 1.83, 1.20, 1.19, 1.42), 
+  lower = c(NA, 1.37, NA, 1.33, 1.72, 2.13, NA, 1.28, 1.12, 1.15, 1.27, 0.98, 1.19, 1.13, 0.63, NA, 1.32, 1.74, 1.16, 1.14, 1.38), 
+  upper = c(NA, 1.47, NA, 2.26, 2.77, 3.40, NA, 1.39, 1.20, 1.24, 1.36, 1.18, 1.30, 1.27, 0.72, NA, 1.43, 1.93, 1.24, 1.23, 1.47), 
+  HR_CI = c(
+    NA, 
+    "1.42 (1.37, 1.47)",
+    NA, 
+    "1.73 (1.33, 2.26)",
+    "2.19 (1.72, 2.77)",
+    "2.69 (2.13, 3.40)",
+    NA, 
+    "1.34 (1.28, 1.39)",
+    "1.16 (1.12, 1.20)",
+    "1.19 (1.15, 1.24)",
+    "1.31 (1.27, 1.36)",
+    "1.07 (0.98, 1.18)",
+    "1.24 (1.19, 1.30)",
+    "1.19 (1.13, 1.27)",
+    "0.67 (0.63, 0.72)",
+    NA, 
+    "1.37 (1.32, 1.43)",
+    "1.83 (1.74, 1.93)",
+    "1.20 (1.16, 1.24)",
+    "1.19 (1.14, 1.23)",
+    "1.42 (1.38, 1.47)"
+    )
+)
+
+
+# plot
+
+  base_data1 |>
+  forestplot(labeltext = c(study, HR_CI),
+             clip = c(0.1, 5),
+             xlog = TRUE, 
+             lineheight = unit(0.5, "cm"),
+             boxsize = 0.3,
+             boxtype =3,
+             cex = 0.5,
+             colgap = unit(0.2, "cm"),
+             xlim = c(0.1, 10),
+             xticks = c(0.5, 1, 2, 4),
+             txt_gp = fpTxtGp(
+               label = gpar(fontfamily = "sans", fontsize = 10),       # Font for labels
+               summary = gpar(fontfamily = "sans", fontface = "bold"),  # Font for summary rows
+               xlab = gpar(fontfamily = "mono", cex = 10),             # Font for x-axis label
+               ticks = gpar(fontsize = 17),                              # Font for x-axis ticks
+               title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)  # Font for title
+             )
+  ) |>
+  fp_add_lines(h_3 = gpar(lty = 1)) |>
+  fp_set_style(box = "black",
+               line = "black",
+               summary = "black",
+               align = c("l", "l", "c", "r"),  # Adjust alignment: left, center, right
+               hrz_lines = "#999999") |>
+  fp_add_header(study = c("", "Demographics"),
+                HR_CI = c("", "aHR (95% CI)")
+  )
+
+base_data2 |>
+  forestplot(labeltext = c(study, HR_CI),
+             clip = c(0.1, 5),
+             xlog = TRUE, 
+             lineheight = unit(0.5, "cm"),
+             boxsize = 0.3,
+             boxtype =3,
+             cex = 0.5,
+             colgap = unit(0.2, "cm"),
+             xlim = c(0.1, 10),
+             xticks = c(0.5, 1, 2, 4),
+             txt_gp = fpTxtGp(
+               label = gpar(fontfamily = "sans", fontsize = 10),       # Font for labels
+               summary = gpar(fontfamily = "sans", fontface = "bold"),  # Font for summary rows
+               xlab = gpar(fontfamily = "mono", cex = 10),             # Font for x-axis label
+               ticks = gpar(fontsize = 17),                              # Font for x-axis ticks
+               title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)  # Font for title
+             )
+  ) |>
+  fp_add_lines(h_3 = gpar(lty = 1)) |>
+  fp_set_style(box = "black",
+               line = "black",
+               summary = "black",
+               align = c("l", "l", "c", "r"),  # Adjust alignment: left, center, right
+               hrz_lines = "#999999") |>
+  fp_add_header(study = c("", "Clinical characteristics"),
+                HR_CI = c("", "aHR (95% CI)")
+  )
+```
+
+```{r}
+# Load necessary libraries
+library(forestplot)
+library(grid)
+library(gridExtra)
+library(tibble)
+
+# Create the dataset
+base_data1 <- tibble(
+  study = c(
+    "Age", 
+    "Sex (ref=Male)", 
+    "   Female", 
+    "Race (ref=White)", 
+    "   Black",
+    "   Asian", 
+    "Ethnicity (ref=Not Hispanic)", 
+    "   Hispanic or Latino",
+    "Marital status (ref=Single)", 
+    "   Married",
+    "Regional location (ref=West)", 
+    "   South",
+    "   Northeast",
+    "   Midwest"
+  ),    
+  mean  = c(1.00, NA, 1.61, NA, 1.27, 1.15, NA, 1.09, NA, 1.14, NA, 1.10, 1.62, 1.33), 
+  lower = c(1.00, NA, 1.54, NA, 1.22, 0.96, NA, 1.03, NA, 1.09, NA, 1.04, 1.53, 1.24),
+  upper = c(1.00, NA, 1.69, NA, 1.33, 1.38, NA, 1.15, NA, 1.18, NA, 1.18, 1.72, 1.42),
+  HR_CI = c(
+    "1.00 (1.00, 1.00)",
+    NA,
+    "1.61 (1.54, 1.69)",
+    NA,
+    "1.27 (1.22, 1.33)",
+    "1.15 (0.96, 1.38)",
+    NA, 
+    "1.09 (1.03, 1.15)",
+    NA, 
+    "1.14 (1.09, 1.18)",
+    NA, 
+    "1.10 (1.04, 1.18)",
+    "1.62 (1.53, 1.72)",
+    "1.33 (1.24, 1.42)"
+  )
+)
+
+# Open PDF device
+#pdf("Figure4_1_forestplot.pdf", width = 8, height = 6)
+pdf(file='/Users/ming/Desktop/Code/Thesis_R/analysos_3/forestplot.pdf')
+
+# Plot the forestplot
+forestplot(
+  labeltext = cbind(base_data1$study, base_data1$HR_CI),
+  mean = base_data1$mean,
+  lower = base_data1$lower,
+  upper = base_data1$upper,
+  xlog = TRUE,
+  lineheight = unit(0.5, "cm"),
+  boxsize = 0.3,
+  boxtype = 3,
+  clip = c(0.1, 5),
+  xlim = c(0.1, 10),
+  xticks = c(0.5, 1, 2, 4),
+  colgap = unit(0.2, "cm"),
+  txt_gp = fpTxtGp(
+    label = gpar(fontfamily = "sans", fontsize = 10),
+    summary = gpar(fontfamily = "sans", fontface = "bold"),
+    xlab = gpar(fontfamily = "mono", cex = 10),
+    ticks = gpar(fontsize = 17),
+    title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)
+  ),
+  col = fpColors(box = "black", line = "black", summary = "black"),
+  hrzl_lines = list("3" = gpar(lty = 1)),
+  align = c("l", "l", "c", "r"),
+  title = "Demographics"
+)
+
+# Close the PDF device
+dev.off()
+```
+
+
+
+
+
+## time-varying
+```{r}
+base_data1 <- tibble(
+  study = c(
+    "Age", 
+    "Sex (ref=Male)", 
+    "   Female", 
+    "Race (ref=White)", 
+    "   Black",
+    "   Asian", 
+    "Ethinicity (ref=Not Hispanic)                  ", 
+    "   Hispanic or Latino", 
+    "Marital status (ref=Single)", 
+    "   Married",
+    "Regional location (ref=West)                   ",
+    "   South",
+    "   Northeast",
+    "   Midwest"
+  ),    
+  mean  = c(1.00, NA, 1.38, NA, 1.22, 1.24, NA, 1.07, NA, 1.05, NA, 1.08, 1.28, 1.06), 
+  lower = c(0.99, NA, 1.30, NA, 1.15, 0.99, NA, 1.00, NA, 0.98, NA, 0.99, 1.19, 0.98),
+  upper = c(1.00, NA, 1.48, NA, 1.29, 1.55, NA, 1.14, NA, 1.11, NA, 1.11, 1.38, 1.15),
+  HR_CI = c(
+    "1.00 (0.99, 1.00)",
+    NA,
+    "1.38 (1.30, 1.48)",
+    NA,
+    "1.22 (1.15, 1.29)",
+    "1.24 (0.99, 1.55)",
+    NA, 
+    "1.07 (1.00, 1.14)",
+    NA, 
+    "1.05 (0.98, 1.11)",
+    NA, 
+    "1.08 (0.99, 1.18)",
+    "1.28 (1.19, 1.38)",
+    "1.06 (0.98, 1.15)"
+    )
+)
+
+base_data2 <- tibble(
+  study = c(
+    "Bariatric surgery type (ref=RYGB)",
+    "   Sleeve gastrectomy",
+   "BMI at baseline (ref=Overweight)",
+    "   Obesity - Class1",
+    "   Obesity - Class2",
+    "   Obesity - Class3",
+    "Comorbidities",
+    "   Type 2 diabetes",
+    "   Hypertension",
+    "   Dyslipidemia",
+    "   Obstructive sleep apnea",
+    "   Heart failure",
+    "   Fatty liver disease",
+    "   Polycystic ovarian syndrome",
+    "   Gastroesophageal reflux disease",
+    "Concurrent medication",
+    "   Anti-diabetes medications",
+    "   Anti-obesity medications",
+    "   Antidepressants",
+    "   Antipsychotics",
+    "   Anticonvulsants"
+  ),    
+  mean  = c(NA, 1.30, NA, 1.69, 1.92, 1.61, NA, 1.03, 0.97, 1.09, 1.09, 0.83, 1.18, 1.04, 0.68, NA, 1.32, 1.62, 1.04, 1.07, 1.41), 
+  lower = c(NA, 1.24, NA, 1.29, 1.50, 1.27, NA, 0.94, 0.93, 1.04, 1.04, 0.73, 1.11, 0.96, 0.63, NA, 1.24, 1.52, 0.99, 1.01, 1.34), 
+  upper = c(NA, 1.36, NA, 2.22, 2.44, 2.05, NA, 1.13, 1.02, 1.15, 1.14, 0.95, 1.24, 1.13, 0.73, NA, 1.40, 1.74, 1.10, 1.13, 1.47), 
+  HR_CI = c(
+    NA, 
+    "1.30 (1.24, 1.36)",
+    NA, 
+    "1.69 (1.29, 2.22)",
+    "1.92 (1.50, 2.44)",
+    "1.61 (1.27, 2.05)",
+    NA, 
+    "1.03 (0.94, 1.13)",
+    "0.97 (0.93, 1.02)",
+    "1.09 (1.04, 1.15)",
+    "1.09 (1.04, 1.14)",
+    "0.83 (0.73, 0.95)",
+    "1.18 (1.11, 1.24)",
+    "1.04 (0.96, 1.13)",
+    "0.68 (0.63, 0.73)",
+    NA, 
+    "1.32 (1.24, 1.40)",
+    "1.62 (1.52, 1.74)",
+    "1.04 (0.99, 1.10)",
+    "1.07 (1.01, 1.13)",
+    "1.41 (1.34, 1.47)"
+    )
+)
+
+base_data3 <- tibble(
+  study = c(
+   "Post-surgery BMI (kg/m2)",
+   "Post type 2 diabetes"
+  ),    
+  mean  = c(1.08, 1.33), 
+  lower = c(1.08, 1.21), 
+  upper = c(1.08, 1.45), 
+  HR_CI = c(
+    "1.08 (1.08, 1.08)",
+    "1.33 (1.21, 1.45)"
+    )
+)
+
+
+# plot
+base_data1 |>
+  forestplot(labeltext = c(study, HR_CI),
+             clip = c(0.1, 5),
+             xlog = TRUE, 
+             lineheight = unit(0.5, "cm"),
+             boxsize = 0.3,
+             boxtype =3,
+             cex = 0.5,
+             colgap = unit(0.2, "cm"),
+             xlim = c(0.1, 10),
+             xticks = c(0.5, 1, 2, 4),
+             txt_gp = fpTxtGp(
+               label = gpar(fontfamily = "sans", fontsize = 10),       # Font for labels
+               summary = gpar(fontfamily = "sans", fontface = "bold"),  # Font for summary rows
+               xlab = gpar(fontfamily = "mono", cex = 10),             # Font for x-axis label
+               ticks = gpar(fontsize = 17),                              # Font for x-axis ticks
+               title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)  # Font for title
+             )
+  ) |>
+  fp_add_lines(h_3 = gpar(lty = 1)) |>
+  fp_set_style(box = "black",
+               line = "black",
+               summary = "black",
+               align = c("l", "l", "c", "r"),  # Adjust alignment: left, center, right
+               hrz_lines = "#999999") |>
+  fp_add_header(study = c("", "Demographics"),
+                HR_CI = c("", "aHR (95% CI)")
+  )
+
+base_data2 |>
+  forestplot(labeltext = c(study, HR_CI),
+             clip = c(0.2, 5),
+             xlog = TRUE, 
+             lineheight = unit(0.5, "cm"),
+             boxsize = 0.3,
+             boxtype =3,
+             cex = 0.5,
+             colgap = unit(0.1, "cm"),
+             xlim = c(0.1, 10),
+             xticks = c(0.5, 1, 2, 4),
+             txt_gp = fpTxtGp(
+               label = gpar(fontfamily = "sans", fontsize = 10),       # Font for labels
+               summary = gpar(fontfamily = "sans", fontface = "bold"),  # Font for summary rows
+               xlab = gpar(fontfamily = "mono", cex = 10),             # Font for x-axis label
+               ticks = gpar(fontsize = 17),                              # Font for x-axis ticks
+               title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)  # Font for title
+             )
+  ) |>
+  fp_add_lines(h_3 = gpar(lty = 1)) |>
+  fp_set_style(box = "black",
+               line = "black",
+               summary = "black",
+               align = c("l", "l", "c", "r"),  # Adjust alignment: left, center, right
+               hrz_lines = "#999999") |>
+  fp_add_header(study = c("", "Pre-surgical clinical characteristics"),
+                HR_CI = c("", "aHR (95% CI)")
+  )
+base_data3 |>
+  forestplot(labeltext = c(study, HR_CI),
+             clip = c(0.1, 5),
+             xlog = TRUE, 
+             lineheight = unit(0.5, "cm"),
+             boxsize = 0.3,
+             boxtype =3,
+             cex = 0.5,
+             colgap = unit(0.2, "cm"),
+             xlim = c(0.1, 10),
+             xticks = c(0.5, 1, 2, 4),
+             txt_gp = fpTxtGp(
+               label = gpar(fontfamily = "sans", fontsize = 10),       # Font for labels
+               summary = gpar(fontfamily = "sans", fontface = "bold"),  # Font for summary rows
+               xlab = gpar(fontfamily = "mono", cex = 10),             # Font for x-axis label
+               ticks = gpar(fontsize = 17),                              # Font for x-axis ticks
+               title = gpar(fontfamily = "sans", fontface = "bold", fontsize = 11)  # Font for title
+             )
+  ) |>
+  fp_add_lines(h_3 = gpar(lty = 1)) |>
+  fp_set_style(box = "black",
+               line = "black",
+               summary = "black",
+               align = c("l", "l", "c", "r"),  # Adjust alignment: left, center, right
+               hrz_lines = "#999999") |>
+  fp_add_header(study = c("", "Post-surgical clinical characteristics"),
+                HR_CI = c("", "aHR (95% CI)")
+  )
+```
+
+
+
+
+
+
